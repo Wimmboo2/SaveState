@@ -154,6 +154,7 @@ internal sealed class AppsPage : UserControl, IPage
         Ui.HideBanner(_banner);
         _placeholder.Text = "Looking for installed apps…";
         _placeholder.Visible = true;
+        _grid.Visible = false;
         _save.Enabled = false;
         try
         {
@@ -200,6 +201,7 @@ internal sealed class AppsPage : UserControl, IPage
         _grid.CellValueChanged += OnCellValueChanged;
 
         _placeholder.Visible = visible.Count == 0;
+        _grid.Visible = visible.Count > 0;
         if (visible.Count == 0)
             _placeholder.Text = _state.Apps.Count == 0 ? "No installed apps found." : "No apps match your search.";
         UpdateCount();

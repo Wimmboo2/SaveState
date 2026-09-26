@@ -19,7 +19,7 @@ internal sealed class BackupPage : UserControl, IPage
     private readonly Banner _banner = Ui.Banner();
 
     // Status card
-    private readonly StatusCard _status = new(Theme.H2, Theme.Body) { Margin = new Padding(0, 0, 0, Theme.S4) };
+    private readonly StatusCard _status = new(Theme.H2, Theme.Body) { Margin = new Padding(0, 0, 0, Theme.S3), Padding = new Padding(Theme.S4) };
     private readonly UsageBar _stored = new() { Dock = DockStyle.Top, Caption = "Stored backup" };
     private readonly RoundedButton _backup = new() { Text = "Back up now", AutoSize = true, Glyph = "\uE898", Height = 44 };
     private readonly RoundedButton _download = new() { Text = "Download backup", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "\uE896", Height = 44 };
@@ -49,7 +49,7 @@ internal sealed class BackupPage : UserControl, IPage
         var intro = Ui.Muted($"Back up before you reinstall. Your app list is kept for good; files are kept for {state.Api.Config.ExpiryDays} days after each upload. A new backup replaces the old one.", maxWidth: 720);
         intro.Margin = new Padding(0, Theme.S2, 0, Theme.S5);
 
-        // Card 1: is it backed up, plus the actions.
+        // Status (tinted, straight on the page so PageStack measures it), then a card with the actions.
         var current = new Card { Padding = new Padding(Theme.S5), Margin = new Padding(0, 0, 0, Theme.S4) };
         var currentLayout = Stack();
         _stored.Margin = new Padding(0, 0, 0, Theme.S4);
@@ -65,7 +65,7 @@ internal sealed class BackupPage : UserControl, IPage
         _stage.Margin = new Padding(0, Theme.S3, 0, Theme.S2);
         _stage.Visible = false; // only while working
         _progress.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        AddRows(currentLayout, _status, _stored, buttons, _summary, _stage, _progress);
+        AddRows(currentLayout, _stored, buttons, _summary, _stage, _progress);
         current.FitTo(currentLayout);
 
         // Card 2: every file in the stored backup.
@@ -98,7 +98,7 @@ internal sealed class BackupPage : UserControl, IPage
         _placeholder.BringToFront();
         contentsHeader.SendToBack(); // docked first, so it takes the top and the grid fills the rest
 
-        Controls.Add(new PageStack().Add(header).Add(intro).Add(_banner).Add(current).Fill(contents));
+        Controls.Add(new PageStack().Add(header).Add(intro).Add(_banner).Add(_status).Add(current).Fill(contents));
         ResumeLayout(true);
 
         _backup.Click += async (_, _) => await BackUpAsync();
@@ -173,7 +173,9 @@ internal sealed class BackupPage : UserControl, IPage
         else if (contents.Unavailable) empty = "This backup doesn't include a file list. Download it and open README.txt to see what's inside.";
 
         _showFiles.Visible = empty is null && contents!.Items.Any(i => i.IsFolder);
+        // Never overlap the two: only one of them is visible at a time.
         _placeholder.Visible = empty is not null;
+        _grid.Visible = empty is null;
         if (empty is not null)
         {
             _placeholder.Text = empty;

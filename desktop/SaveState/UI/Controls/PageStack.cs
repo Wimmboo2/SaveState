@@ -96,6 +96,8 @@ internal sealed class PageStack : Panel
                 return label.PreferredSize.Height;
             case Banner banner:
                 return banner.GetPreferredSize(new Size(width, 0)).Height;
+            case StatusCard status:
+                return status.GetPreferredSize(new Size(width, 0)).Height;
             case Card card:
                 card.Width = width; // content re-flows and the card fits itself (see Card.FitTo)
                 return card.Height;

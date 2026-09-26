@@ -210,6 +210,7 @@ internal sealed class FilesPage : UserControl, IPage
         RenderBackedUp();
 
         _placeholder.Visible = sources.Count == 0;
+        _grid.Visible = sources.Count > 0;
         _usage.Used = plan?.TotalBytes ?? _usage.Used;
         if (sources.Count == 0) _usage.Used = 0;
 
