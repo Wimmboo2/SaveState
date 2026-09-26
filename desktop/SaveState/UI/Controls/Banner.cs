@@ -11,9 +11,6 @@ internal sealed class Banner : Control
     private Ui.Tone _tone = Ui.Tone.Info;
     private string _message = "";
 
-    /// <summary>Experiment switch (CI diagnostics): whether Show() updates the accessible name/role.</summary>
-    internal static bool UpdateAccessibility { get; set; } = true;
-
     public Banner()
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
@@ -23,14 +20,14 @@ internal sealed class Banner : Control
         Anchor = AnchorStyles.Left | AnchorStyles.Right;
         Margin = new Padding(0, 0, 0, Theme.S4);
         Padding = new Padding(Theme.S3 + 2, Theme.S2 + 2, Theme.S3 + 2, Theme.S2 + 2);
-        if (UpdateAccessibility) AccessibleRole = AccessibleRole.Alert;
+        AccessibleRole = AccessibleRole.Alert; // screen readers announce it
     }
 
     public void Show(string message, Ui.Tone tone)
     {
         _message = message;
         _tone = tone;
-        if (UpdateAccessibility) AccessibleName = message;
+        AccessibleName = message;
         FitHeight();
         Visible = true;
         Invalidate();

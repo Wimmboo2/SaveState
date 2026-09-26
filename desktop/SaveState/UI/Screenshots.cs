@@ -92,16 +92,9 @@ internal static class Screenshots
                 SizeBytes = 26_214_400,
                 UploadedAt = DateTimeOffset.UtcNow.AddDays(-7),
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(23).AddHours(2),
-            }, Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOMISSING") == "1"
-                ? [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt")]
-                : [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
+            }, [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
 
             Note("state ready");
-            BannerExperiment(accessible: false);
-            BannerExperiment(accessible: true);
-            // Experiment: whole run with banner accessibility updates off.
-            Controls.Banner.UpdateAccessibility = Environment.GetEnvironmentVariable("SAVESTATE_BANNER_A11Y") != "0";
-            Note($"  banner accessibility for pages: {Controls.Banner.UpdateAccessibility}");
             using (var login = new LoginForm(api))
                 Capture(login, Path.Combine(outDir, "login.png"));
             Note("login captured");
@@ -149,25 +142,6 @@ internal static class Screenshots
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
         bitmap.Save(path, ImageFormat.Png);
         if (show) form.Hide();
-    }
-
-    /// <summary>Times showing + painting one banner, with or without accessibility updates.</summary>
-    private static void BannerExperiment(bool accessible)
-    {
-        Controls.Banner.UpdateAccessibility = accessible;
-        using var form = new Form { Width = 800, Height = 200, BackColor = Theme.Bg };
-        var banner = Ui.Banner();
-        banner.Width = 700;
-        form.Controls.Add(banner);
-        form.Show();
-        Application.DoEvents();
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        banner.Show("1 item doesn't exist anymore and will be skipped. Select and remove it to tidy up.", Ui.Tone.Warning);
-        var showMs = sw.ElapsedMilliseconds;
-        sw.Restart();
-        form.Refresh();
-        Note($"  banner experiment accessible={accessible}: show {showMs} ms, paint {sw.ElapsedMilliseconds} ms");
-        form.Hide();
     }
 
     /// <summary>Times each control's first paint, deepest first, and logs slow ones (finds slow painters).</summary>

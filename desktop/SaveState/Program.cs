@@ -23,7 +23,7 @@ internal static class Program
         if (args is ["--screenshots", var outDir])
         {
             Headless = true;
-            if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOCTX") != "1") InstallUiContext();
+            InstallUiContext();
             Environment.ExitCode = Screenshots.Run(outDir);
             return;
         }

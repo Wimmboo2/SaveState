@@ -45,8 +45,7 @@ internal sealed class FilesPage : UserControl, IPage
         foreach (var preset in Presets.All)
         {
             var button = new RoundedButton { Text = $"Add {preset.Name}", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "", Margin = new Padding(0, 0, Theme.S2, Theme.S2) };
-            if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOTOOLTIP") != "1")
-                new ToolTip().SetToolTip(button, preset.Description);
+            new ToolTip().SetToolTip(button, preset.Description);
             button.Click += (_, _) => AddPreset(preset);
             toolbar.Controls.Add(button);
         }
@@ -92,9 +91,6 @@ internal sealed class FilesPage : UserControl, IPage
         root.Controls.Add(card);
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
         root.Controls.Add(footer);
-        if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOFOOTER") == "1") footer.Visible = false;
-        if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOTOOLBAR") == "1") toolbar.Visible = false;
-        if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOGRID") == "1") card.Visible = false;
         Controls.Add(root);
         ResumeLayout(true);
 
@@ -213,19 +209,13 @@ internal sealed class FilesPage : UserControl, IPage
                 row.DefaultCellStyle.ForeColor = Theme.InkSubtle;
             rows.Add(row);
         }
-        Screenshots.Trace("files: rows built");
         _grid.ReplaceRows(rows);
-        Screenshots.Trace("files: rows replaced");
 
         _placeholder.Visible = sources.Count == 0;
         _usage.Used = plan?.TotalBytes ?? _usage.Used;
         if (sources.Count == 0) _usage.Used = 0;
-        Screenshots.Trace("files: usage set");
 
-        if (plan is not null && Environment.GetEnvironmentVariable("SAVESTATE_EXP_FORCEBANNER") == "1")
-            Ui.ShowBanner(_banner, "Experiment: a banner on the Files page.", Ui.Tone.Warning);
-        else if (plan is { Missing.Count: > 0 } && Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOBANNER") == "1") { }
-        else if (plan is { Missing.Count: > 0 })
+        if (plan is { Missing.Count: > 0 })
             Ui.ShowBanner(_banner, $"{plan.Missing.Count} {(plan.Missing.Count == 1 ? "item doesn't" : "items don't")} exist anymore and will be skipped. Select and remove {(plan.Missing.Count == 1 ? "it" : "them")} to tidy up.", Ui.Tone.Warning);
         else if (plan is not null && plan.TotalBytes > _state.Api.Config.MaxBackupBytes)
             Ui.ShowBanner(_banner, $"That's {Sizes.Format(plan.TotalBytes - _state.Api.Config.MaxBackupBytes)} over the limit. Remove something big, or it may not fit after zipping.", Ui.Tone.Warning);
