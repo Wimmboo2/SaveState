@@ -56,7 +56,6 @@ internal sealed class FilesPage : UserControl, IPage
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Type", FillWeight = 12 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Files", FillWeight = 10, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Size", FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
-        _grid.Columns[ColPath].DefaultCellStyle.Font = Theme.Mono;
 
         var card = new Card { Dock = DockStyle.Fill, Padding = new Padding(Theme.S3, Theme.S2, Theme.S3, Theme.S2) };
         _placeholder.Dock = DockStyle.Fill;

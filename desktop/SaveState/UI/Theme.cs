@@ -38,7 +38,6 @@ internal static class Theme
     private const string TextFamily = "Segoe UI";
     private static readonly string DisplayFamily = FirstInstalled("Segoe UI Semibold", "Segoe UI");
     private static readonly FontStyle DisplayStyle = DisplayFamily == "Segoe UI" ? FontStyle.Bold : FontStyle.Regular;
-    private static readonly string MonoFamily = FirstInstalled("Cascadia Mono", "Consolas");
 
     /// <summary>Icon font: Segoe Fluent Icons on Windows 11, Segoe MDL2 Assets on Windows 10 (same code points).</summary>
     public static readonly string GlyphFamily = FirstInstalled("Segoe Fluent Icons", "Segoe MDL2 Assets");
@@ -48,7 +47,6 @@ internal static class Theme
     public static readonly Font BodyStrong = new(DisplayFamily, 10f, DisplayStyle);
     public static readonly Font Label = new(DisplayFamily, 9f, DisplayStyle);
     public static readonly Font Button = new(DisplayFamily, 10f, DisplayStyle);
-    public static readonly Font Mono = new(MonoFamily, 9f);
     public static readonly Font H1 = new(DisplayFamily, 20f, DisplayStyle);
     public static readonly Font H2 = new(DisplayFamily, 14f, DisplayStyle);
     public static readonly Font Wordmark = new(DisplayFamily, 13f, DisplayStyle);
