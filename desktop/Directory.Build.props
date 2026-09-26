@@ -1,0 +1,14 @@
+<Project>
+  <!-- Shared settings for every project in the desktop solution. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.0.0</Version>
+    <Company>SaveState</Company>
+    <Product>SaveState</Product>
+    <Copyright>SaveState</Copyright>
+    <!-- Lets the Windows-only UI project build (not run) on Linux/macOS, e.g. in CI or dev containers. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+</Project>
