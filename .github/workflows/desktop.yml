@@ -41,8 +41,13 @@ jobs:
           $exe = Resolve-Path "SaveState/bin/Release/net10.0-windows/win-x64/SaveState.exe"
           $out = Join-Path $PWD "screenshots"
           $p = Start-Process -FilePath $exe -ArgumentList "--screenshots", "`"$out`"" -PassThru
-          $finished = $p.WaitForExit(120000)
-          if (-not $finished) { $p.Kill() }
+          $finished = $p.WaitForExit(40000)
+          if (-not $finished) {
+            # Stuck UI: print every managed thread's stack so the freeze is diagnosable, then kill it.
+            dotnet tool install --global dotnet-stack | Out-Null
+            dotnet-stack report --process-id $p.Id
+            $p.Kill()
+          }
           if (Test-Path "$out/screenshots.log") { Get-Content "$out/screenshots.log" }
           Get-ChildItem $out -ErrorAction SilentlyContinue
           if (-not $finished) { throw "Screenshot run timed out" }
