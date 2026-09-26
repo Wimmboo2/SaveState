@@ -37,6 +37,8 @@ internal sealed class ThemedGrid : DataGridView
         };
         DefaultCellStyle = new DataGridViewCellStyle
         {
+            // Always set: a replaced default style with no font makes cell painting throw.
+            Font = Theme.Body,
             BackColor = Theme.Surface,
             ForeColor = Theme.Ink,
             SelectionBackColor = Theme.AccentSoft,

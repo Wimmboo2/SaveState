@@ -202,7 +202,6 @@ internal sealed class FilesPage : UserControl, IPage
             var index = _grid.Rows.Add(PathTokens.Tokenize(source, _roots), kind, count, size);
             var row = _grid.Rows[index];
             row.Tag = source;
-            row.Cells[ColPath].ToolTipText = source;
             if (missing || item is null && plan is not null)
                 row.DefaultCellStyle.ForeColor = Theme.InkSubtle;
         }
