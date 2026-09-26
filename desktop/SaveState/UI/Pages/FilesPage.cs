@@ -45,7 +45,8 @@ internal sealed class FilesPage : UserControl, IPage
         foreach (var preset in Presets.All)
         {
             var button = new RoundedButton { Text = $"Add {preset.Name}", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "", Margin = new Padding(0, 0, Theme.S2, Theme.S2) };
-            new ToolTip().SetToolTip(button, preset.Description);
+            if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOTOOLTIP") != "1")
+                new ToolTip().SetToolTip(button, preset.Description);
             button.Click += (_, _) => AddPreset(preset);
             toolbar.Controls.Add(button);
         }

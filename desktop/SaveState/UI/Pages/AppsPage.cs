@@ -167,6 +167,8 @@ internal sealed class AppsPage : UserControl, IPage
                 Ui.ShowBanner(_banner, $"{warning} Your previously saved apps and notes will appear once you're back online.", Ui.Tone.Warning);
             _loaded = true;
             RenderRows();
+            if (Program.Headless && Environment.GetEnvironmentVariable("SAVESTATE_EXP_APPSBANNER") == "1")
+                Ui.ShowBanner(_banner, "Experiment: a banner on the Apps page.", Ui.Tone.Warning);
         }
         catch (ApiException e) when (e.Kind == ApiErrorKind.SessionExpired)
         {

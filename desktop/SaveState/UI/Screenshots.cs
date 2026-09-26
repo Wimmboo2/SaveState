@@ -92,7 +92,9 @@ internal static class Screenshots
                 SizeBytes = 26_214_400,
                 UploadedAt = DateTimeOffset.UtcNow.AddDays(-7),
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(23).AddHours(2),
-            }, [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
+            }, Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOMISSING") == "1"
+                ? [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt")]
+                : [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
 
             Note("state ready");
             BannerExperiment(accessible: false);
