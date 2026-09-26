@@ -12,7 +12,7 @@ Survive a Windows reinstall without losing your setup.
 Files are kept for **30 days** after each upload (max **100 MB**). Your app list is kept forever.
 
 - Website: https://savestate-woad.vercel.app
-- Desktop app: [latest release](https://github.com/Wimmboo2/SaveState/releases/latest)
+- Desktop app: [download SaveState.exe](https://github.com/Wimmboo2/SaveState/releases/latest/download/SaveState.exe) (Windows 10/11, 64-bit, no install)
 
 ## How it fits together
 
