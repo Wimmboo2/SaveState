@@ -35,7 +35,9 @@ internal sealed class FilesPage : UserControl, IPage
         var intro = Ui.Muted($"Pick the small files and folders that make your setup yours: game configs, resource packs, mods, settings. Everything together has to fit in {Sizes.Format(state.Api.Config.MaxBackupBytes)}.", maxWidth: 720);
         intro.Margin = new Padding(0, Theme.S2, 0, Theme.S5);
 
-        var toolbar = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true, BackColor = Theme.Bg, Margin = new Padding(0, 0, 0, Theme.S4) };
+        // One row, no wrapping: a wrapping auto-size FlowLayoutPanel inside an auto-size table row can
+        // send WinForms into an endless layout loop.
+        var toolbar = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, BackColor = Theme.Bg, Margin = new Padding(0, 0, 0, Theme.S4) };
         var addFiles = new RoundedButton { Text = "Add files", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "", Margin = new Padding(0, 0, Theme.S2, Theme.S2) };
         var addFolder = new RoundedButton { Text = "Add folder", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "", Margin = new Padding(0, 0, Theme.S4, Theme.S2) };
         toolbar.Controls.Add(addFiles);

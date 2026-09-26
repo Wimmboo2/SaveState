@@ -11,6 +11,19 @@ internal class Card : Panel
         Padding = new Padding(Theme.S5);
     }
 
+    /// <summary>
+    /// Makes the card exactly as tall as <paramref name="content"/> (docked to the top) plus padding.
+    /// Deterministic alternative to AutoSize, which can loop forever with docked auto-size children.
+    /// </summary>
+    public void FitTo(Control content)
+    {
+        content.Dock = DockStyle.Top;
+        Controls.Add(content);
+        void Fit() => Height = content.Height + Padding.Vertical;
+        content.SizeChanged += (_, _) => Fit();
+        Fit();
+    }
+
     public Color FillColor { get; set; } = Theme.Surface;
     public Color BorderColor { get; set; } = Theme.Line;
 

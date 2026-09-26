@@ -46,7 +46,7 @@ internal sealed class BackupPage : UserControl, IPage
         intro.Margin = new Padding(0, Theme.S2, 0, Theme.S5);
 
         // Card 1: what's stored right now.
-        var current = new Card { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(Theme.S5), Margin = new Padding(0, 0, 0, Theme.S4) };
+        var current = new Card { Padding = new Padding(Theme.S5), Margin = new Padding(0, 0, 0, Theme.S4) };
         var currentLayout = Stack();
         _statusDetail.Margin = new Padding(0, Theme.S1, 0, Theme.S3);
         _expiry.Margin = new Padding(0, 0, 0, Theme.S3);
@@ -55,21 +55,21 @@ internal sealed class BackupPage : UserControl, IPage
         _stored.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         _download.Margin = new Padding(0);
         AddRows(currentLayout, _statusTitle, _statusDetail, _expiry, _stored, _download);
-        current.Controls.Add(currentLayout);
+        current.FitTo(currentLayout);
 
         // Card 2: make a new backup.
-        var next = new Card { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(Theme.S5) };
+        var next = new Card { Padding = new Padding(Theme.S5) };
         var nextLayout = Stack();
         var nextTitle = Ui.Subheading("New backup");
         _summary.Margin = new Padding(0, Theme.S1, 0, Theme.S4);
-        var buttons = new FlowLayoutPanel { AutoSize = true, BackColor = Theme.Surface, Margin = new Padding(0, 0, 0, Theme.S3), WrapContents = false };
+        var buttons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Theme.Surface, Margin = new Padding(0, 0, 0, Theme.S3), WrapContents = false };
         _backup.Margin = new Padding(0, 0, Theme.S2, 0);
         buttons.Controls.Add(_backup);
         buttons.Controls.Add(_cancel);
         _stage.Margin = new Padding(0, Theme.S2, 0, Theme.S2);
         _progress.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         AddRows(nextLayout, nextTitle, _summary, buttons, _stage, _progress);
-        next.Controls.Add(nextLayout);
+        next.FitTo(nextLayout);
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg, AutoScroll = true };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -339,7 +339,8 @@ internal sealed class BackupPage : UserControl, IPage
 
     private static TableLayoutPanel Stack()
     {
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Theme.Surface };
+        // Auto-sizes vertically only; width comes from the card (docked Top).
+        var layout = new TableLayoutPanel { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Theme.Surface };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         return layout;
     }
