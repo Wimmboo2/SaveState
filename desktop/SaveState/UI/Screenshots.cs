@@ -128,10 +128,10 @@ internal static class Screenshots
             if (++pumps % 20 == 0) Note($"  pumping {path} ({pumps})");
         }
         // Diagnostics: how long does a real repaint take (what users see), vs. the bitmap capture?
+        TimeSlowControls(form, depth: 0); // first paint of each control, one by one
         var sw = System.Diagnostics.Stopwatch.StartNew();
         form.Refresh();
         Note($"  refresh took {sw.ElapsedMilliseconds} ms");
-        TimeSlowControls(form, depth: 0);
         Note($"  drawing {path}");
         using var bitmap = new Bitmap(form.Width, form.Height);
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
@@ -149,7 +149,7 @@ internal static class Screenshots
             var sw = System.Diagnostics.Stopwatch.StartNew();
             using (var bmp = new Bitmap(child.Width, child.Height))
                 child.DrawToBitmap(bmp, new Rectangle(Point.Empty, child.Size));
-            if (sw.ElapsedMilliseconds > 500)
+            if (sw.ElapsedMilliseconds > 300)
             {
                 Note($"  slow capture {sw.ElapsedMilliseconds} ms: {child.GetType().Name} '{child.Name}{child.Text}' depth {depth}");
                 TimeSlowControls(child, depth + 1);
