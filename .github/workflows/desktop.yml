@@ -43,9 +43,9 @@ jobs:
           $exe = Resolve-Path "SaveState/bin/Release/net10.0-windows/win-x64/SaveState.exe"
           $variants = @(
             @{ Name = "default";    Env = @{} },
-            @{ Name = "notooltip";  Env = @{ SAVESTATE_EXP_NOTOOLTIP = "1" } },
-            @{ Name = "nomissing";  Env = @{ SAVESTATE_EXP_NOMISSING = "1" } },
-            @{ Name = "appsbanner"; Env = @{ SAVESTATE_EXP_APPSBANNER = "1" } }
+            @{ Name = "nofooter";   Env = @{ SAVESTATE_EXP_NOFOOTER = "1" } },
+            @{ Name = "notoolbar";  Env = @{ SAVESTATE_EXP_NOTOOLBAR = "1" } },
+            @{ Name = "nogrid";     Env = @{ SAVESTATE_EXP_NOGRID = "1" } }
           )
           $failed = $false
           foreach ($v in $variants) {

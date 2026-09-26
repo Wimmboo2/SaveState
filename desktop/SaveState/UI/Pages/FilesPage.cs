@@ -92,6 +92,9 @@ internal sealed class FilesPage : UserControl, IPage
         root.Controls.Add(card);
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
         root.Controls.Add(footer);
+        if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOFOOTER") == "1") footer.Visible = false;
+        if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOTOOLBAR") == "1") toolbar.Visible = false;
+        if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOGRID") == "1") card.Visible = false;
         Controls.Add(root);
         ResumeLayout(true);
 
