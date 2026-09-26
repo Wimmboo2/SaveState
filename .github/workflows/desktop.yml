@@ -37,6 +37,8 @@ jobs:
 
       - name: Render UI screenshots
         shell: pwsh
+        env:
+          SAVESTATE_BANNER_A11Y: "0"
         run: |
           $exe = Resolve-Path "SaveState/bin/Release/net10.0-windows/win-x64/SaveState.exe"
           $out = Join-Path $PWD "screenshots"

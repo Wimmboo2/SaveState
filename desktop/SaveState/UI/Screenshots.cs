@@ -97,7 +97,9 @@ internal static class Screenshots
             Note("state ready");
             BannerExperiment(accessible: false);
             BannerExperiment(accessible: true);
-            BannerExperiment(accessible: false);
+            // Experiment: whole run with banner accessibility updates off.
+            Controls.Banner.UpdateAccessibility = Environment.GetEnvironmentVariable("SAVESTATE_BANNER_A11Y") != "0";
+            Note($"  banner accessibility for pages: {Controls.Banner.UpdateAccessibility}");
             using (var login = new LoginForm(api))
                 Capture(login, Path.Combine(outDir, "login.png"));
             Note("login captured");
@@ -164,7 +166,6 @@ internal static class Screenshots
         form.Refresh();
         Note($"  banner experiment accessible={accessible}: show {showMs} ms, paint {sw.ElapsedMilliseconds} ms");
         form.Hide();
-        Controls.Banner.UpdateAccessibility = true;
     }
 
     /// <summary>Times each control's first paint, deepest first, and logs slow ones (finds slow painters).</summary>
