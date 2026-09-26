@@ -34,8 +34,8 @@ internal static class Screenshots
         try
         {
             RunCore(outDir);
-            Note("done");
-            return 0;
+            Note(_failed ? "done with errors" : "done");
+            return _failed ? 1 : 0;
         }
         catch (Exception e)
         {
@@ -45,7 +45,13 @@ internal static class Screenshots
     }
 
     /// <summary>Records an unexpected error without showing any UI.</summary>
-    public static void Fail(Exception? e) => Note($"ERROR {e}");
+    public static void Fail(Exception? e)
+    {
+        _failed = true;
+        Note($"ERROR {e}");
+    }
+
+    private static bool _failed;
 
     /// <summary>Progress trace (only written in --screenshots mode).</summary>
     public static void Trace(string line) { if (Program.Headless) Note(line); }

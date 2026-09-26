@@ -12,6 +12,9 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += (_, e) => ReportCrash(e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportCrash(e.ExceptionObject as Exception);
 
         // Dev/CI only: render every screen with sample data to PNGs and exit (no network, no login).
         if (args is ["--screenshots", var outDir])
@@ -20,10 +23,6 @@ internal static class Program
             Environment.ExitCode = Screenshots.Run(outDir);
             return;
         }
-
-        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-        Application.ThreadException += (_, e) => ReportCrash(e.Exception);
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportCrash(e.ExceptionObject as Exception);
 
         using var http = CreateHttpClient();
         var api = new SupabaseApi(http, AppConfig.Default, new DpapiSessionStore());
