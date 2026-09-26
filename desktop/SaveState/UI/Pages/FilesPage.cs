@@ -176,6 +176,13 @@ internal sealed class FilesPage : UserControl, IPage
             Screenshots.Trace("files: measuring");
             var plan = await Task.Run(() => BackupBuilder.Plan(sources, cts.Token), cts.Token);
             if (cts.IsCancellationRequested) return;
+            if (InvokeRequired)
+            {
+                // Never touch controls from a background thread (it can hang or crash painting).
+                Screenshots.Trace("files: continuation came back OFF the UI thread; marshalling");
+                BeginInvoke(() => RenderRows(sources, plan));
+                return;
+            }
             Screenshots.Trace("files: render measured rows");
             RenderRows(sources, plan);
             Screenshots.Trace("files: rendered");

@@ -53,8 +53,19 @@ internal sealed class MainForm : Form
         Controls.Add(_content);
         Controls.Add(sidebar);
         ResumeLayout(true);
+        _firstPage = apps;
+    }
 
-        Show(apps);
+    private readonly Control _firstPage;
+
+    /// <summary>
+    /// Pages start loading (async) only once the window is on screen and its message loop is
+    /// running, so their awaits resume on the UI thread.
+    /// </summary>
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        if (_content.Controls.Count == 0) Show(_firstPage);
     }
 
     private Control BuildSidebar(params (string Label, string Glyph, Control Page)[] pages)

@@ -12,6 +12,9 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        // async/await in the UI must resume on the UI thread. Modal dialogs uninstall the WinForms
+        // synchronization context when they close, so it's (re)installed explicitly before each window.
+        WindowsFormsSynchronizationContext.AutoInstall = true;
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ReportCrash(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportCrash(e.ExceptionObject as Exception);
@@ -20,6 +23,7 @@ internal static class Program
         if (args is ["--screenshots", var outDir])
         {
             Headless = true;
+            if (Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOCTX") != "1") InstallUiContext();
             Environment.ExitCode = Screenshots.Run(outDir);
             return;
         }
@@ -52,6 +56,7 @@ internal static class Program
                 if (login.ShowDialog() != DialogResult.OK) return;
             }
 
+            InstallUiContext();
             var main = new MainForm(new AppState(api, http));
             Application.Run(main);
 
@@ -63,6 +68,13 @@ internal static class Program
 
     /// <summary>True in --screenshots mode: never show modal dialogs (nobody is there to click them).</summary>
     public static bool Headless { get; private set; }
+
+    /// <summary>Makes sure awaits on this thread continue on the UI thread.</summary>
+    internal static void InstallUiContext()
+    {
+        if (SynchronizationContext.Current is not WindowsFormsSynchronizationContext)
+            SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+    }
 
     /// <summary>Called by pages when the API reports the session is gone.</summary>
     public static void RequestRelogin(Form? form)
