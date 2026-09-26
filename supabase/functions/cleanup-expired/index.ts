@@ -2,7 +2,8 @@
 // migration) with an `x-cron-secret` header that must match the Vault secret.
 //
 // 1. Expired rows: `expires_at < now()` with a file_path → delete the zip in R2 (through the
-//    storage API, so the bytes are really gone) → clear the row's file columns. The app list stays.
+//    storage API, so the bytes are really gone) → clear the row's file columns and mark them
+//    'expired' (the app and website show when). The app list stays.
 // 2. Sweep: anything left in the bucket that's past 30 days, over the size limit, or not referenced
 //    by any row for more than a day (abandoned upload, deleted account) is deleted too.
 //
@@ -13,9 +14,9 @@ import { adminClient } from '../_shared/admin.ts'
 import { EXPIRY_DAYS, MAX_BACKUP_BYTES } from '../_shared/constants.ts'
 import { fail, json } from '../_shared/http.ts'
 import { listAll, r2, remove } from '../_shared/r2.ts'
+import { filesRemoved } from '../_shared/rows.ts'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const CLEARED = { file_path: null, size_bytes: 0, uploaded_at: null, expires_at: null }
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.')
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
       // Only clear if nothing changed meanwhile (e.g. the user re-uploaded a second ago).
       const { error: updateError } = await admin
         .from('backups')
-        .update(CLEARED)
+        .update(filesRemoved('expired'))
         .eq('user_id', row.user_id)
         .eq('file_path', row.file_path!)
         .lt('expires_at', nowIso)
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
       try {
         await remove(storage, object.key)
         if (referenced.has(object.key)) {
-          await admin.from('backups').update(CLEARED).eq('file_path', object.key)
+          await admin.from('backups').update(filesRemoved('expired')).eq('file_path', object.key)
         }
         summary.swept++
         console.log(`swept ${object.key} (${tooOld ? 'old' : tooBig ? 'oversized' : 'orphaned'})`)
