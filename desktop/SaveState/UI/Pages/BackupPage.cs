@@ -140,6 +140,7 @@ internal sealed class BackupPage : UserControl, IPage
         _stored.Visible = hasFiles;
         _download.Visible = hasFiles;
         if (hasFiles) _stored.Used = backup!.SizeBytes;
+        RenderSummary(); // its wording depends on whether a backup is stored
         RenderContents();
     }
 
