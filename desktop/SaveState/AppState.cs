@@ -76,6 +76,17 @@ internal sealed class AppState
         return warning;
     }
 
+    /// <summary>Fills the state with sample data (used by the --screenshots mode, no network).</summary>
+    internal void LoadDemo(List<AppListItem> apps, BackupRow? backup, IEnumerable<string> sources)
+    {
+        Apps = apps;
+        AppsLoaded = true;
+        _appsLoad = Task.FromResult<string?>(null);
+        Sources.Clear();
+        Sources.AddRange(sources);
+        SetBackup(backup);
+    }
+
     public void SetSources(IEnumerable<string> sources)
     {
         var list = sources.Distinct(StringComparer.OrdinalIgnoreCase).ToList();

@@ -105,6 +105,9 @@ internal sealed class MainForm : Form
         return sidebar;
     }
 
+    /// <summary>Switches to the page at <paramref name="index"/> (0 Apps, 1 Files, 2 Backup).</summary>
+    internal void ShowPage(int index) => Show(_pages[index].Page);
+
     private void Show(Control page)
     {
         _content.SuspendLayout();
