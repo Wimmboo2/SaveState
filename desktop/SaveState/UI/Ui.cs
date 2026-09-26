@@ -81,7 +81,8 @@ internal static class Ui
         });
 
     private static TaskDialogButton Show(IWin32Window? owner, TaskDialogPage page) =>
-        owner is null
+        Program.Headless ? TaskDialogButton.Cancel // --screenshots mode: nobody to answer
+        : owner is null
             ? TaskDialog.ShowDialog(page, TaskDialogStartupLocation.CenterScreen)
             : TaskDialog.ShowDialog(owner, page, TaskDialogStartupLocation.CenterOwner);
 

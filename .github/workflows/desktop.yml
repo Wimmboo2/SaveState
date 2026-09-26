@@ -41,13 +41,19 @@ jobs:
           $exe = Resolve-Path "SaveState/bin/Release/net10.0-windows/win-x64/SaveState.exe"
           $out = Join-Path $PWD "screenshots"
           $p = Start-Process -FilePath $exe -ArgumentList "--screenshots", "`"$out`"" -PassThru
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "Screenshot run timed out" }
-          Get-ChildItem $out
+          $finished = $p.WaitForExit(120000)
+          if (-not $finished) { $p.Kill() }
+          if (Test-Path "$out/screenshots.log") { Get-Content "$out/screenshots.log" }
+          Get-ChildItem $out -ErrorAction SilentlyContinue
+          if (-not $finished) { throw "Screenshot run timed out" }
+          if ($p.ExitCode -ne 0) { throw "Screenshot run failed with exit code $($p.ExitCode)" }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: desktop-screenshots
-          path: desktop/screenshots/*.png
+          path: desktop/screenshots/
           retention-days: 14
+          if-no-files-found: ignore
 
   release:
     if: github.event_name == 'workflow_dispatch' && inputs.version != ''

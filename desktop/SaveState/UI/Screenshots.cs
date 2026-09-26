@@ -13,9 +13,51 @@ namespace SaveState.UI;
 /// </summary>
 internal static class Screenshots
 {
-    public static void Run(string outDir)
+    private static string? _logPath;
+
+    /// <summary>Renders all screens. Returns the process exit code (0 = all captured).</summary>
+    public static int Run(string outDir)
     {
         Directory.CreateDirectory(outDir);
+        _logPath = Path.Combine(outDir, "screenshots.log");
+        Note("start");
+
+        // Watchdog: CI must never hang on a stuck UI.
+        var watchdog = new Thread(() =>
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(75));
+            Note("watchdog: timed out, exiting");
+            Environment.Exit(3);
+        }) { IsBackground = true };
+        watchdog.Start();
+
+        try
+        {
+            RunCore(outDir);
+            Note("done");
+            return 0;
+        }
+        catch (Exception e)
+        {
+            Fail(e);
+            return 1;
+        }
+    }
+
+    /// <summary>Records an unexpected error without showing any UI.</summary>
+    public static void Fail(Exception? e) => Note($"ERROR {e}");
+
+    private static void Note(string line)
+    {
+        Console.Error.WriteLine(line);
+        if (_logPath is not null)
+        {
+            try { File.AppendAllText(_logPath, $"{DateTime.UtcNow:HH:mm:ss.fff} {line}{Environment.NewLine}"); } catch (IOException) { }
+        }
+    }
+
+    private static void RunCore(string outDir)
+    {
         var sample = Directory.CreateTempSubdirectory("savestate-demo-");
         try
         {
@@ -40,8 +82,10 @@ internal static class Screenshots
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(23).AddHours(2),
             }, [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
 
+            Note("state ready");
             using (var login = new LoginForm(api))
                 Capture(login, Path.Combine(outDir, "login.png"));
+            Note("login captured");
 
             using var main = new MainForm(state);
             string[] names = ["apps", "files", "backup"];
@@ -50,6 +94,7 @@ internal static class Screenshots
                 if (i == 0) main.Show();
                 main.ShowPage(i);
                 Capture(main, Path.Combine(outDir, $"{names[i]}.png"), show: false);
+                Note($"{names[i]} captured");
             }
             main.Hide();
         }

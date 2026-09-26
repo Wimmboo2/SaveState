@@ -16,7 +16,8 @@ internal static class Program
         // Dev/CI only: render every screen with sample data to PNGs and exit (no network, no login).
         if (args is ["--screenshots", var outDir])
         {
-            Screenshots.Run(outDir);
+            Headless = true;
+            Environment.ExitCode = Screenshots.Run(outDir);
             return;
         }
 
@@ -61,6 +62,9 @@ internal static class Program
         }
     }
 
+    /// <summary>True in --screenshots mode: never show modal dialogs (nobody is there to click them).</summary>
+    public static bool Headless { get; private set; }
+
     /// <summary>Called by pages when the API reports the session is gone.</summary>
     public static void RequestRelogin(Form? form)
     {
@@ -82,6 +86,11 @@ internal static class Program
     private static void ReportCrash(Exception? e)
     {
         Log.Error("Unhandled exception", e);
+        if (Headless)
+        {
+            Screenshots.Fail(e);
+            return;
+        }
         try
         {
             Ui.Error(null, "SaveState ran into a problem",
