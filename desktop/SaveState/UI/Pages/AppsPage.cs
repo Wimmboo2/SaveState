@@ -62,16 +62,9 @@ internal sealed class AppsPage : UserControl, IPage
         card.Controls.Add(_placeholder);
         _placeholder.BringToFront();
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        foreach (var c in new Control[] { header, intro, toolbar, _banner })
-        {
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.Controls.Add(c);
-        }
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(card);
-        Controls.Add(root);
+        toolbar.Dock = DockStyle.None;
+        card.Dock = DockStyle.None;
+        Controls.Add(new PageStack().Add(header).Add(intro).Add(toolbar).Add(_banner).Fill(card));
 
         BuildColumns();
         ResumeLayout(true);

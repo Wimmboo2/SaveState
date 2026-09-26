@@ -80,18 +80,10 @@ internal sealed class FilesPage : UserControl, IPage
         footer.Controls.Add(_usage);
         footer.Controls.Add(_usageNote);
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        foreach (var c in new Control[] { header, intro, toolbar, _banner })
-        {
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.Controls.Add(c);
-        }
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(card);
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
-        root.Controls.Add(footer);
-        Controls.Add(root);
+        card.Dock = DockStyle.None;
+        footer.Dock = DockStyle.None;
+        footer.Height = 96;
+        Controls.Add(new PageStack().Add(header).Add(intro).Add(toolbar).Add(_banner).Fill(card).AddBottom(footer));
         ResumeLayout(true);
 
         _usage.Max = state.Api.Config.MaxBackupBytes;

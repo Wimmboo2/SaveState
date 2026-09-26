@@ -72,17 +72,7 @@ internal sealed class BackupPage : UserControl, IPage
         AddRows(nextLayout, nextTitle, _summary, buttons, _stage, _progress);
         next.FitTo(nextLayout);
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        foreach (var c in new Control[] { header, intro, _banner, current, next })
-        {
-            if (c is Card) { c.Dock = DockStyle.None; c.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top; }
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.Controls.Add(c);
-        }
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(new Panel { BackColor = Theme.Bg, Height = 1 });
-        Controls.Add(root);
+        Controls.Add(new PageStack().Add(header).Add(intro).Add(_banner).Add(current).Add(next));
         ResumeLayout(true);
 
         _backup.Click += async (_, _) => await BackUpAsync();
