@@ -1,0 +1,95 @@
+# Desktop app CI.
+# - Every change to desktop/: build + test on Windows, and render UI screenshots (artifact).
+# - Manual "Run workflow" with a version: also publish a self-contained SaveState.exe as a
+#   GitHub release (tag v<version>).
+name: Desktop
+
+on:
+  push:
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 1.0.0 (leave empty to only build)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore SaveState.sln
+      - run: dotnet build SaveState.sln --configuration Release --no-restore
+      - run: dotnet test SaveState.sln --configuration Release --no-build --verbosity normal
+
+      - name: Render UI screenshots
+        # Renders every screen with sample data. Fails on any UI exception or if a screen/control
+        # takes over 2 s to paint (guards against UI freezes). PNGs are uploaded for review.
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path "SaveState/bin/Release/net10.0-windows/win-x64/SaveState.exe"
+          $out = Join-Path $PWD "screenshots"
+          $p = Start-Process -FilePath $exe -ArgumentList "--screenshots", "`"$out`"" -PassThru
+          $finished = $p.WaitForExit(170000)
+          if (-not $finished) {
+            # Stuck UI: print every managed thread's stack so the freeze is diagnosable, then kill it.
+            dotnet tool install --global dotnet-stack | Out-Null
+            dotnet-stack report --process-id $p.Id
+            $p.Kill()
+          }
+          if (Test-Path "$out/screenshots.log") { Get-Content "$out/screenshots.log" }
+          if (-not $finished) { throw "Screenshot run timed out" }
+          if ($p.ExitCode -ne 0) { throw "Screenshot run failed with exit code $($p.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-screenshots
+          path: desktop/screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    needs: build-test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish self-contained single-file exe
+        run: >
+          dotnet publish SaveState/SaveState.csproj --configuration Release --runtime win-x64
+          --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true -p:Version=${{ inputs.version }} --output publish
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          $notes = @"
+          SaveState $env:VERSION for Windows 10/11 (64-bit). No install needed: download SaveState.exe and run it.
+
+          Windows may show a SmartScreen warning because the app isn't code-signed yet. Click "More info", then "Run anyway".
+          "@
+          gh release create "v$env:VERSION" publish/SaveState.exe --target "$env:GITHUB_SHA" --title "SaveState $env:VERSION" --notes $notes

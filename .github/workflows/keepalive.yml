@@ -1,0 +1,32 @@
+# Pings the Supabase project once a day so the free-tier project isn't paused for inactivity
+# (Supabase pauses free projects after ~7 days without user database activity).
+#
+# The URL and publishable key below are PUBLIC by design — the same values ship inside the
+# desktop app and the website's JavaScript. Never put the service role / secret key here.
+#
+# Note: GitHub only runs scheduled workflows from the default branch (main), and disables
+# schedules in public repos after 60 days without commits (it emails you; re-enable in one click).
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "23 5 * * *" # daily, 05:23 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: https://ehitvxhdscevcvlkuegs.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_KcjP42SE8v3nrZuEdKauZw_fxIRPBXh
+    steps:
+      - name: Run a real database query through the API
+        run: |
+          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 10 \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}'

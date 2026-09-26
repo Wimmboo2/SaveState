@@ -1,0 +1,37 @@
+# Secrets — never commit. Use the .env.example files as templates.
+.env
+.env.*
+!.env.example
+*.pem
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+publish/
+artifacts/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+coverage/
+playwright-report/
+test-results/
+
+# Supabase CLI local state
+supabase/.branches/
+supabase/.temp/
