@@ -159,12 +159,16 @@ internal sealed class FilesPage : UserControl, IPage
         var cts = _measure = new CancellationTokenSource();
         var sources = _state.Sources.ToList();
 
+        Screenshots.Trace("files: render placeholder rows");
         RenderRows(sources, plan: null);
         try
         {
+            Screenshots.Trace("files: measuring");
             var plan = await Task.Run(() => BackupBuilder.Plan(sources, cts.Token), cts.Token);
             if (cts.IsCancellationRequested) return;
+            Screenshots.Trace("files: render measured rows");
             RenderRows(sources, plan);
+            Screenshots.Trace("files: rendered");
         }
         catch (OperationCanceledException) { }
         catch (Exception e)

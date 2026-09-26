@@ -110,10 +110,12 @@ internal sealed class MainForm : Form
 
     private void Show(Control page)
     {
+        Screenshots.Trace($"main: swapping to {page.GetType().Name}");
         _content.SuspendLayout();
         _content.Controls.Clear();
         _content.Controls.Add(page);
         _content.ResumeLayout(true);
+        Screenshots.Trace("main: layout done");
         foreach (var (button, p) in _pages) button.Selected = ReferenceEquals(p, page);
         if (page is IPage shown) shown.OnShown();
     }

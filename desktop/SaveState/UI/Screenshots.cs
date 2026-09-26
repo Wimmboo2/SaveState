@@ -47,6 +47,9 @@ internal static class Screenshots
     /// <summary>Records an unexpected error without showing any UI.</summary>
     public static void Fail(Exception? e) => Note($"ERROR {e}");
 
+    /// <summary>Progress trace (only written in --screenshots mode).</summary>
+    public static void Trace(string line) { if (Program.Headless) Note(line); }
+
     private static void Note(string line)
     {
         Console.Error.WriteLine(line);
@@ -92,7 +95,9 @@ internal static class Screenshots
             for (var i = 0; i < names.Length; i++)
             {
                 if (i == 0) main.Show();
+                Note($"showing {names[i]}");
                 main.ShowPage(i);
+                Note($"shown {names[i]}");
                 Capture(main, Path.Combine(outDir, $"{names[i]}.png"), show: false);
                 Note($"{names[i]} captured");
             }
@@ -109,11 +114,14 @@ internal static class Screenshots
         if (show) form.Show();
         // Let layout, async measuring and painting settle.
         var until = DateTime.UtcNow.AddSeconds(2);
+        var pumps = 0;
         while (DateTime.UtcNow < until)
         {
             Application.DoEvents();
             Thread.Sleep(30);
+            if (++pumps % 20 == 0) Note($"  pumping {path} ({pumps})");
         }
+        Note($"  drawing {path}");
         using var bitmap = new Bitmap(form.Width, form.Height);
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
         bitmap.Save(path, ImageFormat.Png);
