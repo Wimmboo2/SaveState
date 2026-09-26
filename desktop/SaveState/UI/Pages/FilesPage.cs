@@ -202,11 +202,14 @@ internal sealed class FilesPage : UserControl, IPage
                 row.DefaultCellStyle.ForeColor = Theme.InkSubtle;
             rows.Add(row);
         }
+        Screenshots.Trace("files: rows built");
         _grid.ReplaceRows(rows);
+        Screenshots.Trace("files: rows replaced");
 
         _placeholder.Visible = sources.Count == 0;
         _usage.Used = plan?.TotalBytes ?? _usage.Used;
         if (sources.Count == 0) _usage.Used = 0;
+        Screenshots.Trace("files: usage set");
 
         if (plan is { Missing.Count: > 0 })
             Ui.ShowBanner(_banner, $"{plan.Missing.Count} {(plan.Missing.Count == 1 ? "item doesn't" : "items don't")} exist anymore and will be skipped. Select and remove {(plan.Missing.Count == 1 ? "it" : "them")} to tidy up.", Ui.Tone.Warning);

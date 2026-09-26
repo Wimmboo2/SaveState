@@ -139,21 +139,19 @@ internal static class Screenshots
         if (show) form.Hide();
     }
 
-    /// <summary>Logs any control whose capture takes more than half a second (to find slow painters).</summary>
+    /// <summary>Times each control's first paint, deepest first, and logs slow ones (finds slow painters).</summary>
     private static void TimeSlowControls(Control parent, int depth)
     {
-        if (depth > 6) return;
+        if (depth > 8) return;
         foreach (Control child in parent.Controls)
         {
             if (!child.Visible || child.Width <= 0 || child.Height <= 0) continue;
+            TimeSlowControls(child, depth + 1);
             var sw = System.Diagnostics.Stopwatch.StartNew();
             using (var bmp = new Bitmap(child.Width, child.Height))
                 child.DrawToBitmap(bmp, new Rectangle(Point.Empty, child.Size));
-            if (sw.ElapsedMilliseconds > 300)
-            {
-                Note($"  slow capture {sw.ElapsedMilliseconds} ms: {child.GetType().Name} '{child.Name}{child.Text}' depth {depth}");
-                TimeSlowControls(child, depth + 1);
-            }
+            if (sw.ElapsedMilliseconds > 200)
+                Note($"  slow first paint {sw.ElapsedMilliseconds} ms: {child.GetType().Name} '{child.Text}' {child.Width}x{child.Height} depth {depth}");
         }
     }
 
