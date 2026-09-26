@@ -31,3 +31,8 @@ export function formatDate(value: string | Date): string {
     new Date(value),
   )
 }
+
+/** True when the date is less than `days` away (or already past). */
+export function isWithinDays(value: string | Date, days: number, now: Date = new Date()): boolean {
+  return new Date(value).getTime() - now.getTime() < days * 24 * 60 * 60 * 1000
+}
