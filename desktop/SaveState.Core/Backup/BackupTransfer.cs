@@ -33,28 +33,50 @@ public sealed class BackupTransfer(SupabaseApi api, HttpClient http)
         progress?.Report(new TransferProgress("Saving app list", 0, size));
         await api.SaveAppsAsync(apps, ct);
 
-        progress?.Report(new TransferProgress("Preparing upload", 0, size));
-        var ticket = await api.InvokeFunctionAsync(Function, new { action = "upload-url", size_bytes = size }, ct);
-        var url = ticket?["url"]?.GetValue<string>() ?? throw Unexpected();
-
-        using (var file = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, useAsync: true))
-        using (var request = new HttpRequestMessage(HttpMethod.Put, url))
+        // Some networks break big uploads now and then; each retry gets a fresh upload link.
+        for (var attempt = 1; ; attempt++)
         {
-            request.Content = new ProgressStreamContent(file, size, bytes => progress?.Report(new TransferProgress("Uploading", bytes, size)));
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-            request.Content.Headers.ContentLength = size;
-            using var response = await SendTransferAsync(request, size, ct);
-            if (!response.IsSuccessStatusCode)
+            progress?.Report(new TransferProgress(attempt == 1 ? "Preparing upload" : $"Retrying upload ({attempt} of {UploadAttempts})", 0, size));
+            try
             {
-                throw response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest
-                    ? new ApiException(ApiErrorKind.Rejected, "The upload was refused (the upload link may have expired). Please try again.", (int)response.StatusCode)
-                    : new ApiException(ApiErrorKind.Server, "Uploading failed on the storage side. Please try again in a moment.", (int)response.StatusCode);
+                await PutOnceAsync(zipPath, size, progress, ct);
+                break;
+            }
+            catch (ApiException e) when (attempt < UploadAttempts && e.Kind is ApiErrorKind.Server or ApiErrorKind.Network or ApiErrorKind.Timeout)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct);
             }
         }
 
         progress?.Report(new TransferProgress("Finishing", size, size));
         var confirmed = await api.InvokeFunctionAsync(Function, new { action = "confirm-upload" }, ct);
         return ParseRow(confirmed);
+    }
+
+    private const int UploadAttempts = 3;
+
+    private async Task PutOnceAsync(string zipPath, long size, IProgress<TransferProgress>? progress, CancellationToken ct)
+    {
+        var ticket = await api.InvokeFunctionAsync(Function, new { action = "upload-url", size_bytes = size }, ct);
+        var url = ticket?["url"]?.GetValue<string>() ?? throw Unexpected();
+
+        using var file = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, useAsync: true);
+        using var request = new HttpRequestMessage(HttpMethod.Put, url);
+        request.Content = new ProgressStreamContent(file, size, bytes => progress?.Report(new TransferProgress("Uploading", bytes, size)));
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        request.Content.Headers.ContentLength = size;
+        using var response = await SendTransferAsync(request, size, ct);
+        if (response.IsSuccessStatusCode) return;
+
+        // Say exactly what storage answered, so a failure can be tracked down.
+        var status = (int)response.StatusCode;
+        var body = "";
+        try { body = await response.Content.ReadAsStringAsync(ct); } catch (HttpRequestException) { }
+        var code = System.Text.RegularExpressions.Regex.Match(body, "<Code>([^<]+)</Code>").Groups[1].Value;
+        var detail = $"(storage answered HTTP {status}{(code.Length > 0 ? $", {code}" : "")})";
+        throw response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest
+            ? new ApiException(ApiErrorKind.Rejected, $"The upload was refused {detail}. Please try again.", status, code)
+            : new ApiException(ApiErrorKind.Server, $"Uploading failed on the storage side {detail}. Please try again in a moment.", status, code);
     }
 
     /// <summary>Downloads the current backup zip to <paramref name="destination"/>.</summary>
