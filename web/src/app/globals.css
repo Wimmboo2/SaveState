@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/*
+ * SaveState design tokens, "Organic" direction.
+ * Calm, earthy, natural: sage-tinted off-white, deep moss as the single accent, neutrals tinted toward moss.
+ * Shape rule: inputs + buttons use --radius-control (12px), surfaces/cards use --radius-card (20px),
+ * small chips use full pill. Nothing else.
+ * These values are mirrored in desktop/SaveState/UI/Theme.cs.
+ */
+:root {
+  --bg: #edefe7;
+  --surface: #f7f8f3;
+  --surface-sunk: #e2e6db;
+  --ink: #1e2620;
+  --ink-muted: #4c5750;
+  --ink-subtle: #5b665f;
+  --line: #d3d9cc;
+  --line-strong: #7f8a81; /* form control borders: >=3:1 against surfaces (WCAG 1.4.11) */
+  --accent: #3d6a4c;
+  --accent-hover: #335a40;
+  --accent-soft: #d8e5d6;
+  --on-accent: #f7f8f3;
+  --danger: #a0402e;
+  --danger-soft: #f1ddd5;
+  --warn: #7d5a0c;
+  --warn-soft: #f1e6c9;
+  --shadow-color: 30 38 32;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131915;
+    --surface: #1a221d;
+    --surface-sunk: #0f1411;
+    --ink: #e6e9e1;
+    --ink-muted: #aab3aa;
+    --ink-subtle: #8c968e;
+    --line: #2c3730;
+    --line-strong: #6c796f;
+    --accent: #8fbf98;
+    --accent-hover: #a3cdab;
+    --accent-soft: #223329;
+    --on-accent: #0f1712;
+    --danger: #e38b77;
+    --danger-soft: #3a211b;
+    --warn: #dcb65c;
+    --warn-soft: #33291a;
+    --shadow-color: 0 0 0;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+
+  --font-display: var(--font-nunito), ui-rounded, system-ui, sans-serif;
+  --font-sans: var(--font-nunito-sans), system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, monospace;
+
+  --radius-control: 12px;
+  --radius-card: 20px;
+
+  --shadow-soft: 0 1px 2px rgb(var(--shadow-color) / 0.05), 0 8px 24px -8px rgb(var(--shadow-color) / 0.1);
+  --shadow-lift: 0 2px 4px rgb(var(--shadow-color) / 0.06), 0 18px 40px -12px rgb(var(--shadow-color) / 0.16);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* One motivated entrance: the hero preview settles in as the page loads.
+   Content is fully visible by default; the keyframes only enhance it. */
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.animate-settle-in {
+  animation: settle-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.12s backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
