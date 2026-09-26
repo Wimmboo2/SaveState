@@ -2,33 +2,37 @@ using System.Diagnostics;
 using System.Globalization;
 using SaveState.Core.Api;
 using SaveState.Core.Backup;
+using SaveState.Core.Models;
 using SaveState.Services;
 using SaveState.UI.Controls;
 
 namespace SaveState.UI.Pages;
 
 /// <summary>
-/// Current backup status (size, expiry countdown), "Back up now" (zip → size check → upload) and
-/// "Download backup".
+/// Is my stuff backed up? A status card (when, what, how big, when it expires, or that it was
+/// deleted on the website), "Back up now" / "Download backup", and a list of every file in the
+/// stored backup.
 /// </summary>
 internal sealed class BackupPage : UserControl, IPage
 {
     private readonly AppState _state;
     private readonly Banner _banner = Ui.Banner();
 
-    // Current backup card
-    private readonly Label _statusTitle = Ui.Subheading("");
-    private readonly Label _statusDetail = Ui.Muted("", maxWidth: 640);
-    private readonly Label _expiry = Ui.Text("", Theme.BodyStrong);
+    // Status card
+    private readonly StatusCard _status = new(Theme.H2, Theme.Body) { Margin = new Padding(0, 0, 0, Theme.S4) };
     private readonly UsageBar _stored = new() { Dock = DockStyle.Top, Caption = "Stored backup" };
-    private readonly RoundedButton _download = new() { Text = "Download backup", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "" };
-
-    // New backup card
-    private readonly Label _summary = Ui.Muted("", maxWidth: 640);
-    private readonly RoundedButton _backup = new() { Text = "Back up now", AutoSize = true, Glyph = "", Height = 44 };
-    private readonly RoundedButton _cancel = new() { Text = "Cancel", Variant = ButtonVariant.Ghost, AutoSize = true, Visible = false };
+    private readonly RoundedButton _backup = new() { Text = "Back up now", AutoSize = true, Glyph = "\uE898", Height = 44 };
+    private readonly RoundedButton _download = new() { Text = "Download backup", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "\uE896", Height = 44 };
+    private readonly RoundedButton _cancel = new() { Text = "Cancel", Variant = ButtonVariant.Ghost, AutoSize = true, Visible = false, Height = 44 };
+    private readonly Label _summary = Ui.Muted("", maxWidth: 720);
     private readonly Label _stage = Ui.Text("", Theme.BodyStrong);
     private readonly ProgressLine _progress = new() { Dock = DockStyle.Top, Visible = false };
+
+    // What's in the backup
+    private readonly Label _contentsSummary = Ui.Text("", Theme.BodySmall, Theme.InkMuted);
+    private readonly CheckBox _showFiles = new() { Text = "Show every file", AutoSize = true, Font = Theme.Body, ForeColor = Theme.InkMuted, BackColor = Theme.Surface };
+    private readonly ThemedGrid _grid = new() { Dock = DockStyle.Fill, ReadOnly = true };
+    private readonly Label _placeholder = Ui.Muted("");
 
     private readonly IReadOnlyList<PathRoot> _roots = PathTokens.FromEnvironment();
     private CancellationTokenSource? _work;
@@ -45,39 +49,62 @@ internal sealed class BackupPage : UserControl, IPage
         var intro = Ui.Muted($"Back up before you reinstall. Your app list is kept for good; files are kept for {state.Api.Config.ExpiryDays} days after each upload. A new backup replaces the old one.", maxWidth: 720);
         intro.Margin = new Padding(0, Theme.S2, 0, Theme.S5);
 
-        // Card 1: what's stored right now.
+        // Card 1: is it backed up, plus the actions.
         var current = new Card { Padding = new Padding(Theme.S5), Margin = new Padding(0, 0, 0, Theme.S4) };
         var currentLayout = Stack();
-        _statusDetail.Margin = new Padding(0, Theme.S1, 0, Theme.S3);
-        _expiry.Margin = new Padding(0, 0, 0, Theme.S3);
         _stored.Margin = new Padding(0, 0, 0, Theme.S4);
         _stored.Max = state.Api.Config.MaxBackupBytes;
         _stored.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        _download.Margin = new Padding(0);
-        AddRows(currentLayout, _statusTitle, _statusDetail, _expiry, _stored, _download);
-        current.FitTo(currentLayout);
-
-        // Card 2: make a new backup.
-        var next = new Card { Padding = new Padding(Theme.S5) };
-        var nextLayout = Stack();
-        var nextTitle = Ui.Subheading("New backup");
-        _summary.Margin = new Padding(0, Theme.S1, 0, Theme.S4);
-        var buttons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Theme.Surface, Margin = new Padding(0, 0, 0, Theme.S3), WrapContents = false };
+        var buttons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Theme.Surface, Margin = new Padding(0, 0, 0, Theme.S2), WrapContents = false };
         _backup.Margin = new Padding(0, 0, Theme.S2, 0);
+        _download.Margin = new Padding(0, 0, Theme.S2, 0);
         buttons.Controls.Add(_backup);
+        buttons.Controls.Add(_download);
         buttons.Controls.Add(_cancel);
-        _stage.Margin = new Padding(0, Theme.S2, 0, Theme.S2);
+        _summary.Margin = new Padding(0, Theme.S1, 0, 0);
+        _stage.Margin = new Padding(0, Theme.S3, 0, Theme.S2);
         _stage.Visible = false; // only while working
         _progress.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        AddRows(nextLayout, nextTitle, _summary, buttons, _stage, _progress);
-        next.FitTo(nextLayout);
+        AddRows(currentLayout, _status, _stored, buttons, _summary, _stage, _progress);
+        current.FitTo(currentLayout);
 
-        Controls.Add(new PageStack().Add(header).Add(intro).Add(_banner).Add(current).Add(next));
+        // Card 2: every file in the stored backup.
+        var contents = new Card { Padding = new Padding(Theme.S5, Theme.S4, Theme.S5, Theme.S3) };
+        var contentsHeader = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 2, Height = 64, BackColor = Theme.Surface };
+        contentsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        contentsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        contentsHeader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        contentsHeader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var contentsTitle = Ui.Subheading("What's in your backup");
+        _contentsSummary.Margin = new Padding(0, Theme.S1, 0, 0);
+        _showFiles.Margin = new Padding(Theme.S4, Theme.S1, 0, 0);
+        contentsHeader.Controls.Add(contentsTitle, 0, 0);
+        contentsHeader.Controls.Add(_contentsSummary, 0, 1);
+        contentsHeader.Controls.Add(_showFiles, 1, 0);
+        contentsHeader.SetRowSpan(_showFiles, 2);
+
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Location", FillWeight = 62 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Type", FillWeight = 12 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Files", FillWeight = 10, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Size", FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
+        _placeholder.Dock = DockStyle.Fill;
+        _placeholder.AutoSize = false;
+        _placeholder.TextAlign = ContentAlignment.MiddleCenter;
+        _placeholder.BackColor = Theme.Surface;
+        _placeholder.Padding = new Padding(Theme.S6, 0, Theme.S6, 0);
+        contents.Controls.Add(_grid);
+        contents.Controls.Add(_placeholder);
+        contents.Controls.Add(contentsHeader);
+        _placeholder.BringToFront();
+        contentsHeader.SendToBack(); // docked first, so it takes the top and the grid fills the rest
+
+        Controls.Add(new PageStack().Add(header).Add(intro).Add(_banner).Add(current).Fill(contents));
         ResumeLayout(true);
 
         _backup.Click += async (_, _) => await BackUpAsync();
         _download.Click += async (_, _) => await DownloadAsync();
         _cancel.Click += (_, _) => _work?.Cancel();
+        _showFiles.CheckedChanged += (_, _) => RenderContents();
         _state.BackupChanged += (_, _) => { if (IsHandleCreated) BeginInvoke(RenderStatus); };
         _state.SourcesChanged += (_, _) => { if (IsHandleCreated) BeginInvoke(RenderSummary); };
         RenderStatus();
@@ -93,6 +120,7 @@ internal sealed class BackupPage : UserControl, IPage
             var warning = await _state.EnsureAppsLoadedAsync();
             if (warning is not null && _work is null) Ui.ShowBanner(_banner, warning, Ui.Tone.Warning);
             RenderSummary();
+            if (!Program.Headless) await _state.RefreshBackupAsync(); // fresh status when you open this page
         }
         catch (ApiException e) when (e.Kind == ApiErrorKind.SessionExpired)
         {
@@ -106,48 +134,78 @@ internal sealed class BackupPage : UserControl, IPage
 
     private void RenderStatus()
     {
+        _status.Status = BackupStatus.From(_state);
         var backup = _state.Backup;
-        if (!_state.BackupLoaded)
-        {
-            _statusTitle.Text = "Checking your backup…";
-            _statusDetail.Text = "";
-            _expiry.Visible = _stored.Visible = _download.Visible = false;
-            return;
-        }
-
-        var appCount = backup?.Apps.Count ?? 0;
-        var appsText = appCount == 0 ? "No apps saved yet." : $"{appCount} {(appCount == 1 ? "app" : "apps")} saved to your account.";
-
-        if (backup is { HasFiles: true, UploadedAt: { } uploaded, ExpiresAt: { } expires })
-        {
-            _statusTitle.Text = $"Last backup: {uploaded.ToLocalTime().ToString("d MMMM yyyy, HH:mm", CultureInfo.CurrentCulture)}";
-            _statusDetail.Text = appsText;
-            var left = Sizes.TimeLeft(expires);
-            var soon = expires - DateTimeOffset.UtcNow < TimeSpan.FromDays(5);
-            _expiry.Text = left == "expired" ? "Files have expired." : $"Files expire {left} ({expires.ToLocalTime():d MMM}).";
-            _expiry.ForeColor = soon ? Theme.Warn : Theme.Ink;
-            _stored.Used = backup.SizeBytes;
-            _expiry.Visible = _stored.Visible = _download.Visible = true;
-        }
-        else
-        {
-            _statusTitle.Text = backup is null ? "No backup yet" : "No files stored";
-            _statusDetail.Text = backup is null
-                ? "Pick your apps and files, then back up below."
-                : $"{appsText} Files are removed {_state.Api.Config.ExpiryDays} days after upload, or you haven't backed up files yet.";
-            _expiry.Visible = _stored.Visible = _download.Visible = false;
-        }
+        var hasFiles = backup?.HasFiles == true;
+        _stored.Visible = hasFiles;
+        _download.Visible = hasFiles;
+        if (hasFiles) _stored.Used = backup!.SizeBytes;
+        RenderContents();
     }
 
     private void RenderSummary()
     {
         var apps = _state.AppsLoaded ? _state.Apps.Count(a => a.IsSelected) : (int?)null;
         var items = _state.Sources.Count;
-        var appsText = apps is null ? "your apps" : $"{apps} {(apps == 1 ? "app" : "apps")}";
+        var appsText = apps is null ? "your apps" : BackupStatus.Count(apps.Value, "app");
+        var verb = _state.Backup?.HasFiles == true ? "Backing up again replaces this backup and saves" : "Backing up saves";
         _summary.Text = items == 0
-            ? $"Will save {appsText}. No files picked, so only your app list is saved (add files on the Files page)."
-            : $"Will save {appsText} and {items} picked {(items == 1 ? "item" : "items")} from the Files page, zipped into one file.";
+            ? $"{verb} {appsText}. No files picked, so only your app list is saved (add files on the Files page)."
+            : $"{verb} {appsText} and {BackupStatus.Count(items, "picked item")} from the Files page, zipped into one file.";
         _backup.Text = items == 0 ? "Save app list" : "Back up now";
+    }
+
+    /// <summary>Fills the "What's in your backup" list from the server's file list.</summary>
+    private void RenderContents()
+    {
+        var backup = _state.Backup;
+        var contents = backup?.Files;
+        string? empty = null;
+        if (!_state.BackupLoaded) empty = "Checking your backup…";
+        else if (backup is not { HasFiles: true })
+            empty = backup switch
+            {
+                { FilesWereDeleted: true } => $"Your backup files were deleted on the website on {BackupStatus.When(backup.FilesRemovedAt!.Value)}, so nothing is stored right now.\nBack up again to store your files.",
+                { FilesExpired: true } => $"Your backup files expired on {BackupStatus.When(backup.FilesRemovedAt!.Value)}, so nothing is stored right now.\nBack up again to store your files.",
+                _ => "No files backed up yet. Pick files on the Files page, then back up.",
+            };
+        else if (contents is null) empty = "Loading the list of files…";
+        else if (contents.Unavailable) empty = "This backup doesn't include a file list. Download it and open README.txt to see what's inside.";
+
+        _showFiles.Visible = empty is null && contents!.Items.Any(i => i.IsFolder);
+        _placeholder.Visible = empty is not null;
+        if (empty is not null)
+        {
+            _placeholder.Text = empty;
+            _contentsSummary.Text = "";
+            _grid.ReplaceRows([]);
+            return;
+        }
+
+        _contentsSummary.Text = $"{BackupStatus.Count(contents!.FileCount, "file")} from {BackupStatus.Count(contents.ItemCount, "picked item")}, {Sizes.Format(contents.TotalBytes)} before zipping";
+        var rows = new List<DataGridViewRow>();
+        foreach (var item in contents.Items)
+        {
+            rows.Add(_grid.NewRow(item, item.Path, item.IsFolder ? "Folder" : "File", item.FileCount.ToString("N0", CultureInfo.CurrentCulture), Sizes.Format(item.SizeBytes)));
+            if (!_showFiles.Checked || !item.IsFolder) continue;
+            foreach (var file in item.Files)
+                rows.Add(FileRow(file.Path, Sizes.Format(file.SizeBytes)));
+            var unlisted = item.FileCount - item.Files.Count;
+            if (unlisted > 0) rows.Add(FileRow($"…and {BackupStatus.Count(unlisted, "more file")} (not listed on very big backups)", ""));
+        }
+        var hiddenItems = contents.ItemCount - contents.Items.Count;
+        if (hiddenItems > 0) rows.Add(FileRow($"…and {BackupStatus.Count(hiddenItems, "more item")} (not listed)", ""));
+        _grid.ReplaceRows(rows);
+    }
+
+    /// <summary>An indented, quieter row for a file inside a backed-up folder.</summary>
+    private DataGridViewRow FileRow(string path, string size)
+    {
+        var row = _grid.NewRow(null, path, "", "", size);
+        row.DefaultCellStyle.ForeColor = Theme.InkMuted;
+        row.DefaultCellStyle.Font = Theme.BodySmall;
+        row.Cells[0].Style.Padding = new Padding(36, 0, 8, 0);
+        return row;
     }
 
     private async Task BackUpAsync()
@@ -313,6 +371,7 @@ internal sealed class BackupPage : UserControl, IPage
 
     private void SetBusy(bool busy)
     {
+        _state.TransferRunning = busy;
         _backup.Enabled = !busy;
         _download.Enabled = !busy;
         _cancel.Visible = busy;

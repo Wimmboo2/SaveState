@@ -23,7 +23,7 @@ internal sealed class AppsPage : UserControl, IPage
     private bool _loaded;
     private bool _loading;
 
-    private const int ColSelect = 0, ColName = 1, ColPublisher = 2, ColVersion = 3, ColNote = 4;
+    private const int ColSelect = 0, ColName = 1, ColPublisher = 2, ColVersion = 3, ColNote = 4, ColStatus = 5;
 
     public AppsPage(AppState state)
     {
@@ -73,6 +73,7 @@ internal sealed class AppsPage : UserControl, IPage
         _searchDebounce.Tick += (_, _) => { _searchDebounce.Stop(); RenderRows(); };
         _selectedOnly.CheckedChanged += (_, _) => RenderRows();
         _save.Click += async (_, _) => await SaveAsync();
+        _state.BackupChanged += (_, _) => { if (IsHandleCreated && _loaded) BeginInvoke(RenderStatuses); };
 
         // Commit checkbox clicks immediately instead of when the cell loses focus.
         _grid.CurrentCellDirtyStateChanged += (_, _) =>
@@ -105,6 +106,7 @@ internal sealed class AppsPage : UserControl, IPage
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Publisher", ReadOnly = true, FillWeight = 20 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Version", ReadOnly = true, FillWeight = 12, MinimumWidth = 110 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Note (optional)", FillWeight = 36, MaxInputLength = 500 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "In your account", ReadOnly = true, FillWeight = 18, MinimumWidth = 130 });
         _grid.Columns[ColNote].DefaultCellStyle = new DataGridViewCellStyle { ForeColor = Theme.InkMuted, NullValue = "" };
         _grid.Columns[ColName].DefaultCellStyle = new DataGridViewCellStyle { Font = Theme.BodyStrong };
     }
@@ -189,11 +191,12 @@ internal sealed class AppsPage : UserControl, IPage
         var rows = visible.Select(app =>
         {
             var version = app.IsInstalled ? app.Version ?? "" : "not installed";
-            var row = _grid.NewRow(app, app.IsSelected, app.Name, app.Publisher ?? "", version, app.Note);
+            var row = _grid.NewRow(app, app.IsSelected, app.Name, app.Publisher ?? "", version, app.Note, "");
             if (!app.IsInstalled) row.Cells[ColVersion].Style.ForeColor = Theme.InkSubtle;
             return row;
         });
         _grid.ReplaceRows(rows); // also clears the selection, so no row looks pre-chosen
+        RenderStatuses();
         _grid.CellValueChanged += OnCellValueChanged;
 
         _placeholder.Visible = visible.Count == 0;
@@ -204,7 +207,7 @@ internal sealed class AppsPage : UserControl, IPage
 
     private void OnCellValueChanged(object? sender, DataGridViewCellEventArgs e)
     {
-        if (e.RowIndex < 0 || _grid.Rows[e.RowIndex].Tag is not AppListItem app) return;
+        if (e.RowIndex < 0 || e.ColumnIndex == ColStatus || _grid.Rows[e.RowIndex].Tag is not AppListItem app) return;
         var cell = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex];
         if (e.ColumnIndex == ColSelect) app.IsSelected = cell.Value is true;
         else if (e.ColumnIndex == ColNote)
@@ -217,7 +220,36 @@ internal sealed class AppsPage : UserControl, IPage
                 _grid.Rows[e.RowIndex].Cells[ColSelect].Value = true;
             }
         }
+        RenderStatus(_grid.Rows[e.RowIndex], app, SavedKeys());
         UpdateCount();
+    }
+
+    private HashSet<string> SavedKeys() =>
+        (_state.Backup?.Apps ?? []).Select(a => AppFilter.AppKey(a.Name, a.Publisher)).ToHashSet();
+
+    /// <summary>Shows, per app, whether it's saved to the account and what the next save will change.</summary>
+    private void RenderStatuses()
+    {
+        var saved = SavedKeys();
+        foreach (DataGridViewRow row in _grid.Rows)
+            if (row.Tag is AppListItem app) RenderStatus(row, app, saved);
+    }
+
+    private void RenderStatus(DataGridViewRow row, AppListItem app, HashSet<string> saved)
+    {
+        var isSaved = saved.Contains(app.Key);
+        var (text, color, font) = (isSaved, app.IsSelected) switch
+        {
+            (true, true) => ("\u2713 Saved", Theme.Accent, Theme.BodyStrong),
+            (false, true) => ("Not saved yet", Theme.Warn, Theme.Body),
+            (true, false) => ("Removed on next save", Theme.InkSubtle, Theme.Body),
+            _ => ("", Theme.InkSubtle, Theme.Body),
+        };
+        var cell = row.Cells[ColStatus];
+        cell.Value = text; // OnCellValueChanged ignores this column
+        cell.Style.ForeColor = color;
+        cell.Style.SelectionForeColor = color;
+        cell.Style.Font = font;
     }
 
     private void UpdateCount()

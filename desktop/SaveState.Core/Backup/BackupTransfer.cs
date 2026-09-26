@@ -95,6 +95,16 @@ public sealed class BackupTransfer(SupabaseApi api, HttpClient http)
         }
     }
 
+    /// <summary>
+    /// Asks the server to read the file list out of the stored zip (for backups made before file
+    /// lists existed). Returns the updated row, or null if the user has no row.
+    /// </summary>
+    public async Task<BackupRow?> FetchFileListAsync(CancellationToken ct = default)
+    {
+        var body = await api.InvokeFunctionAsync(Function, new { action = "file-list" }, ct);
+        return body?["backup"]?.Deserialize<BackupRow>(SupabaseApi.Json);
+    }
+
     /// <summary>Deletes the stored zip (the app list stays).</summary>
     public async Task<BackupRow> DeleteFilesAsync(CancellationToken ct = default) =>
         ParseRow(await api.InvokeFunctionAsync(Function, new { action = "delete" }, ct));

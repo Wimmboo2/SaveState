@@ -38,11 +38,62 @@ internal sealed class AppState
     public IReadOnlyList<SavedApp> SelectedApps =>
         Apps.Where(a => a.IsSelected).Select(a => a.ToSavedApp()).ToList();
 
+    /// <summary>True while a backup or download runs (background refreshes wait until it's done).</summary>
+    public bool TransferRunning { get; set; }
+
+    private int _backupVersion;
+    private bool _refreshing;
+    private DateTime _lastRefreshUtc = DateTime.MinValue;
+    private DateTimeOffset? _fileListRequestedFor;
+
     public void SetBackup(BackupRow? backup)
     {
         Backup = backup;
         BackupLoaded = true;
+        _backupVersion++;
         BackupChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Re-reads the row from the server so changes made elsewhere show up here: files deleted on
+    /// the website, files that expired, or a backup made from another PC. Quietly does nothing
+    /// when offline. Throttled unless <paramref name="force"/>.
+    /// </summary>
+    public async Task RefreshBackupAsync(bool force = false)
+    {
+        if (_refreshing || TransferRunning || !BackupLoaded) return;
+        if (!force && DateTime.UtcNow - _lastRefreshUtc < TimeSpan.FromSeconds(15)) return;
+        _refreshing = true;
+        _lastRefreshUtc = DateTime.UtcNow;
+        var version = _backupVersion;
+        try
+        {
+            var row = await LoadRowAsync();
+            // Something newer (an upload that just finished) wins over this read.
+            if (version != _backupVersion || TransferRunning) return;
+            if (row?.UpdatedAt != Backup?.UpdatedAt || (row is null) != (Backup is null)) SetBackup(row);
+        }
+        catch (ApiException e)
+        {
+            Log.Info($"Background refresh skipped: {e.Message}");
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    /// <summary>The user's row, with the file list filled in by the server if it's missing.</summary>
+    private async Task<BackupRow?> LoadRowAsync()
+    {
+        var row = await Api.GetBackupAsync();
+        if (row is { HasFiles: true, Files: null } && _fileListRequestedFor != row.UploadedAt)
+        {
+            _fileListRequestedFor = row.UploadedAt; // ask once per upload
+            try { row = await Transfer.FetchFileListAsync() ?? row; }
+            catch (ApiException e) { Log.Info($"Couldn't load the file list: {e.Message}"); }
+        }
+        return row;
     }
 
     /// <summary>
@@ -58,8 +109,9 @@ internal sealed class AppState
         string? warning = null;
         try
         {
-            var backup = await Api.GetBackupAsync();
+            var backup = await LoadRowAsync();
             SetBackup(backup);
+            _lastRefreshUtc = DateTime.UtcNow;
             saved = backup?.Apps ?? [];
         }
         catch (ApiException e)

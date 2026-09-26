@@ -111,7 +111,7 @@ public sealed class SupabaseApi
     public async Task<BackupRow?> GetBackupAsync(CancellationToken ct = default)
     {
         var body = await SendAuthorizedAsync(
-            () => NewRequest(HttpMethod.Get, "rest/v1/backups?select=apps,file_path,size_bytes,uploaded_at,expires_at,updated_at"),
+            () => NewRequest(HttpMethod.Get, "rest/v1/backups?select=apps,file_path,size_bytes,uploaded_at,expires_at,updated_at,files,files_removed_at,files_removed_reason"),
             ct);
         var rows = body?.Deserialize<List<BackupRow>>(Json);
         return rows is { Count: > 0 } ? rows[0] : null;

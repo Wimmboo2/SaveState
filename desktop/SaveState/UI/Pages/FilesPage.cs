@@ -1,13 +1,12 @@
 using SaveState.Core.Backup;
-using SaveState.Core.Presets;
 using SaveState.Services;
 using SaveState.UI.Controls;
 
 namespace SaveState.UI.Pages;
 
 /// <summary>
-/// Pick files and folders to include (with one-click presets), see sizes and a running total
-/// against the 100 MB limit.
+/// Pick files and folders to include, see their sizes, whether each one is already in your
+/// backup, and a running total against the 100 MB limit.
 /// </summary>
 internal sealed class FilesPage : UserControl, IPage
 {
@@ -21,7 +20,7 @@ internal sealed class FilesPage : UserControl, IPage
     private readonly RoundedButton _remove = new() { Text = "Remove", Variant = ButtonVariant.Ghost, Enabled = false, AutoSize = true };
     private CancellationTokenSource? _measure;
 
-    private const int ColPath = 0, ColKind = 1, ColCount = 2, ColSize = 3;
+    private const int ColPath = 0, ColKind = 1, ColCount = 2, ColSize = 3, ColBackedUp = 4;
 
     public FilesPage(AppState state)
     {
@@ -42,13 +41,6 @@ internal sealed class FilesPage : UserControl, IPage
         var addFolder = new RoundedButton { Text = "Add folder", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "", Margin = new Padding(0, 0, Theme.S4, Theme.S2) };
         toolbar.Controls.Add(addFiles);
         toolbar.Controls.Add(addFolder);
-        foreach (var preset in Presets.All)
-        {
-            var button = new RoundedButton { Text = $"Add {preset.Name}", Variant = ButtonVariant.Secondary, AutoSize = true, Glyph = "", Margin = new Padding(0, 0, Theme.S2, Theme.S2) };
-            new ToolTip().SetToolTip(button, preset.Description);
-            button.Click += (_, _) => AddPreset(preset);
-            toolbar.Controls.Add(button);
-        }
         _remove.Margin = new Padding(Theme.S4, 0, 0, Theme.S2);
         toolbar.Controls.Add(_remove);
 
@@ -56,13 +48,14 @@ internal sealed class FilesPage : UserControl, IPage
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Type", FillWeight = 12 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Files", FillWeight = 10, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Size", FillWeight = 14, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Backup", FillWeight = 16 });
 
         var card = new Card { Dock = DockStyle.Fill, Padding = new Padding(Theme.S3, Theme.S2, Theme.S3, Theme.S2) };
         _placeholder.Dock = DockStyle.Fill;
         _placeholder.AutoSize = false;
         _placeholder.TextAlign = ContentAlignment.MiddleCenter;
         _placeholder.BackColor = Theme.Surface;
-        _placeholder.Text = "Nothing picked yet. Add files or folders, or use a preset.";
+        _placeholder.Text = "Nothing picked yet. Use Add files or Add folder to pick what to back up.";
         card.Controls.Add(_grid);
         card.Controls.Add(_placeholder);
         _placeholder.BringToFront();
@@ -93,6 +86,7 @@ internal sealed class FilesPage : UserControl, IPage
         _grid.SelectionChanged += (_, _) => _remove.Enabled = _grid.SelectedRows.Count > 0 && _state.Sources.Count > 0;
         _grid.KeyDown += (_, e) => { if (e.KeyCode == Keys.Delete) RemoveSelected(); };
         _state.SourcesChanged += (_, _) => { if (IsHandleCreated) _ = MeasureAsync(); };
+        _state.BackupChanged += (_, _) => { if (IsHandleCreated) BeginInvoke(RenderBackedUp); };
     }
 
     public void OnShown() => _ = MeasureAsync();
@@ -119,20 +113,6 @@ internal sealed class FilesPage : UserControl, IPage
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         };
         if (dialog.ShowDialog(this) == DialogResult.OK) Add(dialog.SelectedPaths);
-    }
-
-    private void AddPreset(Preset preset)
-    {
-        var found = Presets.ResolveExisting(preset);
-        if (found.Count == 0)
-        {
-            Ui.ShowBanner(_banner, $"No {preset.Name} files found on this PC (looked in {Path.GetDirectoryName(preset.Paths[0])}).", Ui.Tone.Info);
-            return;
-        }
-        var added = Add(found);
-        Ui.ShowBanner(_banner, added == 0
-            ? $"Your {preset.Name} files are already in the list."
-            : $"Added {added} {preset.Name} {(added == 1 ? "item" : "items")}.", Ui.Tone.Success);
     }
 
     private int Add(IEnumerable<string> paths)
@@ -183,6 +163,31 @@ internal sealed class FilesPage : UserControl, IPage
         }
     }
 
+    /// <summary>Marks each pick as already in the stored backup or not (from the server's file list).</summary>
+    private void RenderBackedUp()
+    {
+        var backup = _state.Backup;
+        var contents = backup is { HasFiles: true, Files: { Unavailable: false } c } ? c : null;
+        foreach (DataGridViewRow row in _grid.Rows)
+        {
+            if (row.Tag is not string source) continue;
+            var cell = row.Cells[ColBackedUp];
+            if (contents is not null && contents.Covers(PathTokens.Tokenize(source, _roots)))
+            {
+                cell.Value = "\u2713 In backup";
+                cell.Style.ForeColor = Theme.Accent;
+                cell.Style.Font = Theme.BodyStrong;
+            }
+            else if (contents is not null || (_state.BackupLoaded && backup?.HasFiles != true))
+            {
+                cell.Value = "Not yet";
+                cell.Style.ForeColor = Theme.InkSubtle;
+                cell.Style.Font = Theme.Body;
+            }
+            else cell.Value = ""; // still loading, or an older backup without a file list
+        }
+    }
+
     private void RenderRows(List<string> sources, BackupPlan? plan)
     {
         var rows = new List<DataGridViewRow>();
@@ -196,12 +201,13 @@ internal sealed class FilesPage : UserControl, IPage
             else if (item is null) (kind, count, size) = ("Included above", "", ""); // already covered by a picked folder
             else (kind, count, size) = (item.IsFolder ? "Folder" : "File", item.Files.Count.ToString("N0"), Sizes.Format(item.SizeBytes));
 
-            var row = _grid.NewRow(source, PathTokens.Tokenize(source, _roots), kind, count, size);
+            var row = _grid.NewRow(source, PathTokens.Tokenize(source, _roots), kind, count, size, "");
             if (missing || item is null && plan is not null)
                 row.DefaultCellStyle.ForeColor = Theme.InkSubtle;
             rows.Add(row);
         }
         _grid.ReplaceRows(rows);
+        RenderBackedUp();
 
         _placeholder.Visible = sources.Count == 0;
         _usage.Used = plan?.TotalBytes ?? _usage.Used;

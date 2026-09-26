@@ -10,6 +10,7 @@ namespace SaveState.Core.Tests;
 /// Opt-in end-to-end test of the storage loop (edge function + R2). Needs SAVESTATE_TEST_EMAIL,
 /// SAVESTATE_TEST_PASSWORD and SAVESTATE_TEST_STORAGE=1 (only once R2 secrets are configured).
 /// </summary>
+[Collection("Live account")] // both classes use the same account, so never run them in parallel
 public class LiveStorageTests
 {
     private static readonly string? Email = Environment.GetEnvironmentVariable("SAVESTATE_TEST_EMAIL");
