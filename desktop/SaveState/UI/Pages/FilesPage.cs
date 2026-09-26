@@ -16,7 +16,7 @@ internal sealed class FilesPage : UserControl, IPage
     private readonly ThemedGrid _grid = new() { Dock = DockStyle.Fill, ReadOnly = true, MultiSelect = true };
     private readonly Label _placeholder = Ui.Muted("");
     private readonly Label _banner = Ui.Banner();
-    private readonly UsageBar _usage = new() { Dock = DockStyle.Top, Caption = "Selected files" };
+    private readonly UsageBar _usage = new() { Caption = "Selected files" };
     private readonly Label _usageNote = Ui.Text("Sizes are before compression. The zip is usually a bit smaller.", Theme.BodySmall, Theme.InkMuted);
     private readonly RoundedButton _remove = new() { Text = "Remove", Variant = ButtonVariant.Ghost, Enabled = false, AutoSize = true };
     private CancellationTokenSource? _measure;
@@ -68,11 +68,18 @@ internal sealed class FilesPage : UserControl, IPage
         card.Controls.Add(_placeholder);
         _placeholder.BringToFront();
 
-        var footer = new Panel { Dock = DockStyle.Fill, Height = 96, BackColor = Theme.Bg, Padding = new Padding(0, Theme.S5, 0, 0) };
-        _usageNote.Dock = DockStyle.Top;
+        // Table, not docking: an AutoSize label that's also docked fights its parent's layout
+        // (it made this page crawl, and occasionally freeze).
+        var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg, Padding = new Padding(0, Theme.S5, 0, 0) };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        footer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        footer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _usage.Dock = DockStyle.None;
+        _usage.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        _usage.Margin = new Padding(0, 0, 0, Theme.S1);
         _usageNote.Margin = new Padding(0);
-        footer.Controls.Add(_usageNote);
         footer.Controls.Add(_usage);
+        footer.Controls.Add(_usageNote);
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
