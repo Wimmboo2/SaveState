@@ -44,7 +44,7 @@ internal static class Program
                 if (login.ShowDialog() != DialogResult.OK) return;
             }
 
-            var main = new MainForm(new AppState(api));
+            var main = new MainForm(new AppState(api, http));
             Application.Run(main);
 
             if (main.SessionExpired) { loginMessage = "Your login has expired. Please log in again."; continue; }

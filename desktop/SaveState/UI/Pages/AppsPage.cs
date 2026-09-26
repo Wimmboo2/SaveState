@@ -100,7 +100,8 @@ internal sealed class AppsPage : UserControl, IPage
 
     public void OnShown()
     {
-        if (!_loaded && !_loading) _ = LoadAsync();
+        if (!_loading && (!_loaded || !_state.AppsLoaded)) _ = LoadAsync();
+        else if (_loaded) RenderRows(); // pick up changes made elsewhere
     }
 
     private void BuildColumns()
@@ -123,26 +124,17 @@ internal sealed class AppsPage : UserControl, IPage
         _save.Enabled = false;
         try
         {
-            var installedTask = Task.Run(InstalledAppScanner.Scan);
-            IReadOnlyList<Core.Models.SavedApp> saved = [];
-            try
-            {
-                var backup = await _state.Api.GetBackupAsync();
-                _state.SetBackup(backup);
-                saved = backup?.Apps ?? [];
-            }
-            catch (ApiException e)
-            {
-                Ui.ShowBanner(_banner, $"{e.Message} Your previously saved apps and notes will appear once you're back online.", Ui.Tone.Warning);
-                if (e.Kind == ApiErrorKind.SessionExpired) Program.RequestRelogin(FindForm());
-            }
-
-            var installed = await installedTask;
-            _state.Apps = AppListMerger.Merge(installed, saved);
+            var warning = await _state.EnsureAppsLoadedAsync();
+            if (warning is not null)
+                Ui.ShowBanner(_banner, $"{warning} Your previously saved apps and notes will appear once you're back online.", Ui.Tone.Warning);
             _loaded = true;
             RenderRows();
         }
-        catch (Exception e) when (e is not ApiException)
+        catch (ApiException e) when (e.Kind == ApiErrorKind.SessionExpired)
+        {
+            Program.RequestRelogin(FindForm());
+        }
+        catch (Exception e)
         {
             Log.Error("Loading apps failed", e);
             _placeholder.Text = "Couldn't read the list of installed apps. Try restarting SaveState.";
@@ -150,6 +142,7 @@ internal sealed class AppsPage : UserControl, IPage
         finally
         {
             _loading = false;
+            UpdateCount();
         }
     }
 
