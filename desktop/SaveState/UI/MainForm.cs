@@ -9,6 +9,10 @@ internal sealed class MainForm : Form
     private readonly AppState _state;
     private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = Theme.Bg };
     private readonly List<(RoundedButton Button, Control Page)> _pages = [];
+    private readonly StatusCard _status = new() { Clickable = true, Margin = new Padding(0, Theme.S5, 0, 0) };
+
+    // Picks up changes made elsewhere (files deleted on the website, expiry) while the app is open.
+    private readonly System.Windows.Forms.Timer _refreshTimer = new() { Interval = 60_000 };
 
     /// <summary>True when the window closed because the user signed out (Program shows the login again).</summary>
     public bool SignedOut { get; private set; }
@@ -54,6 +58,18 @@ internal sealed class MainForm : Form
         Controls.Add(sidebar);
         ResumeLayout(true);
         _firstPage = apps;
+
+        _status.Status = BackupStatus.From(state);
+        _status.Click += (_, _) => Show(backup);
+        state.BackupChanged += (_, _) => { if (IsHandleCreated) BeginInvoke(() => _status.Status = BackupStatus.From(_state)); };
+        _refreshTimer.Tick += (_, _) => { if (WindowState != FormWindowState.Minimized) _ = _state.RefreshBackupAsync(); };
+    }
+
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        // Coming back to the app (e.g. after deleting files on the website) re-checks the backup.
+        if (!Program.Headless) _ = _state.RefreshBackupAsync();
     }
 
     private readonly Control _firstPage;
@@ -66,6 +82,7 @@ internal sealed class MainForm : Form
     {
         base.OnShown(e);
         if (_content.Controls.Count == 0) Show(_firstPage);
+        if (!Program.Headless) _refreshTimer.Start();
     }
 
     private Control BuildSidebar(params (string Label, string Glyph, Control Page)[] pages)
@@ -111,6 +128,9 @@ internal sealed class MainForm : Form
             layout.Controls.Add(button);
         }
 
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(_status);
+
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Theme.Surface });
 
@@ -142,6 +162,12 @@ internal sealed class MainForm : Form
         Screenshots.Trace("main: layout done");
         foreach (var (button, p) in _pages) button.Selected = ReferenceEquals(p, page);
         if (page is IPage shown) shown.OnShown();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _refreshTimer.Dispose();
+        base.Dispose(disposing);
     }
 
     private async Task SignOutAsync()

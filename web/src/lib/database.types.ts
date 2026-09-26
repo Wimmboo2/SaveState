@@ -13,6 +13,9 @@ export type Database = {
           apps: Json
           expires_at: string | null
           file_path: string | null
+          files: Json | null
+          files_removed_at: string | null
+          files_removed_reason: string | null
           id: string
           size_bytes: number
           updated_at: string
@@ -23,6 +26,9 @@ export type Database = {
           apps?: Json
           expires_at?: string | null
           file_path?: string | null
+          files?: Json | null
+          files_removed_at?: string | null
+          files_removed_reason?: string | null
           id?: string
           size_bytes?: number
           updated_at?: string
@@ -33,6 +39,9 @@ export type Database = {
           apps?: Json
           expires_at?: string | null
           file_path?: string | null
+          files?: Json | null
+          files_removed_at?: string | null
+          files_removed_reason?: string | null
           id?: string
           size_bytes?: number
           updated_at?: string

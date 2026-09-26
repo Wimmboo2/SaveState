@@ -72,6 +72,15 @@ export async function head({ client, bucket }: R2, key: string) {
   }
 }
 
+/** Reads byte ranges of an object (for peeking inside the zip without downloading all of it). */
+export function rangeReader({ client, bucket }: R2, key: string) {
+  return async (start: number, end: number) => {
+    const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=${start}-${end}` }))
+    if (!res.Body) throw new Error(`empty range response for ${key}`)
+    return await res.Body.transformToByteArray()
+  }
+}
+
 /** Deletes an object. Deleting something that's already gone is fine. */
 export async function remove({ client, bucket }: R2, key: string) {
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))

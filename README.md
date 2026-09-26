@@ -29,8 +29,15 @@ Files are kept for **30 days** after each upload (max **100 MB**). Your app list
 
 - **One row per user** in `public.backups`: `apps` (jsonb, kept forever) plus file metadata.
   Row Level Security limits every user to their own row. Clients may only write `apps`;
-  `file_path`, `size_bytes`, `uploaded_at`, `expires_at` are written only by the edge functions
-  after checking the real object in storage, so nobody can fake an expiry date.
+  `file_path`, `size_bytes`, `uploaded_at`, `expires_at`, `files`, `files_removed_at` and
+  `files_removed_reason` are written only by the edge functions after checking the real object in
+  storage, so nobody can fake an expiry date.
+- **File list**: when an upload is confirmed, the `backup` function reads `manifest.json` straight
+  out of the zip in R2 (a few ranged reads: the zip's central directory, then that one entry) and
+  stores a summary in `files`. The website and the app show it as "what's in your backup".
+- **Deleted / expired**: when files go away, `files_removed_at` and `files_removed_reason`
+  (`deleted` or `expired`) say when and why. The desktop app re-checks the row when its window is
+  focused and every minute, so deleting files on the website shows up in the app straight away.
 - **Files live in Cloudflare R2**, not Supabase Storage. Supabase's free plan caps files at 50 MB
   and 1 GB in total; R2's free tier is 10 GB with free downloads. The bucket is private. The
   `backup` edge function checks the caller's login and hands out short-lived presigned URLs for
@@ -66,7 +73,7 @@ supabase/
 - The service role key and the R2 keys exist **only** in the Edge Function environment. The desktop
   app and website only carry the Supabase URL + publishable key, which are public by design
   (they're in every client and protected by RLS).
-- `.env*` files are gitignored; see `web/.env.example` and `supabase/functions/.env.example`.
+- `.env*` files are gitignored; see `supabase/functions/.env.example` for the function secrets.
 - The cleanup function rejects any call without the Vault-backed secret.
 
 ## Setting it up from scratch
@@ -110,7 +117,7 @@ Local development:
 
 ```bash
 cd web
-cp .env.example .env.local   # fill in URL + publishable key
+# web/.env.local: NEXT_PUBLIC_SUPABASE_URL=... and NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>
 npm install
 npm run dev                  # http://localhost:3000
 npm run lint && npx tsc --noEmit && npm run build

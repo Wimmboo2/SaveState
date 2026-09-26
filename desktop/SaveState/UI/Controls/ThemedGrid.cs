@@ -66,7 +66,9 @@ internal sealed class ThemedGrid : DataGridView
     public void ReplaceRows(IEnumerable<DataGridViewRow> rows)
     {
         var batch = rows.ToArray();
-        if (!IsHandleCreated)
+        // WM_SETREDRAW(TRUE) also sets WS_VISIBLE, which would bring a hidden grid back on screen
+        // behind WinForms' back; a hidden grid doesn't paint anyway, so skip the dance.
+        if (!IsHandleCreated || !Visible)
         {
             Rows.Clear();
             Rows.AddRange(batch);

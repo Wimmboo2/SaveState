@@ -149,7 +149,7 @@ export default async function HomePage() {
             <article className="rounded-[var(--radius-card)] bg-surface-sunk p-7 md:col-span-2 md:p-9">
               <h3 className="font-display text-2xl font-bold">Configs, packs and mods</h3>
               <p className="mt-3 leading-relaxed text-ink-muted">
-                Pick any file or folder. For Minecraft, one click adds the usual suspects.
+                Pick any file or folder you want back: game configs, resource packs, mods, settings.
               </p>
               <ul className="mt-5 grid gap-1.5 font-mono text-[13px] text-ink-muted">
                 <li>%APPDATA%\.minecraft\resourcepacks</li>

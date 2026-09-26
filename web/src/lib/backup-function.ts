@@ -2,7 +2,7 @@ import 'server-only'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
-type BackupAction = 'download-url' | 'delete'
+type BackupAction = 'download-url' | 'delete' | 'file-list'
 
 export type BackupFunctionResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string }
 

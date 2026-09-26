@@ -85,14 +85,20 @@ internal static class Screenshots
             store.Save(new Session("demo", "demo", DateTimeOffset.UtcNow.AddHours(1), "demo", "wim@example.com"));
             var api = new SupabaseApi(http, AppConfig.Default, store);
             var state = new AppState(api, http);
-            state.LoadDemo(SampleApps(), new BackupRow
+            // Saved list = the ticked sample apps minus Firefox, so the Apps page shows every status.
+            var saved = SampleApps().Where(a => a.IsSelected && !a.Name.StartsWith("Mozilla")).Select(a => a.ToSavedApp()).ToList();
+            var backedUp = new BackupRow
             {
-                Apps = SampleApps().Where(a => a.IsSelected).Select(a => a.ToSavedApp()).ToList(),
+                Apps = saved,
                 FilePath = "demo/backup.zip",
-                SizeBytes = 26_214_400,
+                SizeBytes = 24_117_248,
                 UploadedAt = DateTimeOffset.UtcNow.AddDays(-7),
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(23).AddHours(2),
-            }, [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
+                UpdatedAt = DateTimeOffset.UtcNow.AddDays(-7),
+                Files = SampleContents(packs.FullName, mods.FullName),
+            };
+            state.LoadDemo(SampleApps(), backedUp,
+                [packs.FullName, mods.FullName, Path.Combine(sample.FullName, ".minecraft", "options.txt"), @"D:\Games\OldSave.sav"]);
 
             Note("state ready");
             using (var login = new LoginForm(api))
@@ -110,6 +116,16 @@ internal static class Screenshots
                 Capture(main, Path.Combine(outDir, $"{names[i]}.png"), show: false);
                 Note($"{names[i]} captured");
             }
+
+            // Same window after the files were deleted on the website (what a background refresh shows).
+            state.SetBackup(backedUp with
+            {
+                FilePath = null, SizeBytes = 0, UploadedAt = null, ExpiresAt = null, Files = null,
+                FilesRemovedAt = DateTimeOffset.UtcNow.AddMinutes(-3), FilesRemovedReason = "deleted",
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+            Capture(main, Path.Combine(outDir, "backup-deleted.png"), show: false);
+            Note("backup-deleted captured");
             main.Hide();
         }
         finally
@@ -160,6 +176,33 @@ internal static class Screenshots
             if (sw.ElapsedMilliseconds > SlowPaintLimitMs)
                 Fail(new TimeoutException($"{child.GetType().Name} took {sw.ElapsedMilliseconds} ms to paint"));
         }
+    }
+
+    /// <summary>The file list the server would have read out of the sample backup.</summary>
+    private static BackupContents SampleContents(string packs, string mods)
+    {
+        var roots = Core.Backup.PathTokens.FromEnvironment();
+        string Token(string path) => Core.Backup.PathTokens.Tokenize(path, roots);
+        return new BackupContents
+        {
+            FileCount = 3,
+            ItemCount = 2,
+            ListedCount = 3,
+            TotalBytes = 25_700_000,
+            Items =
+            [
+                new BackupContentItem
+                {
+                    Path = Token(packs), Kind = "folder", FileCount = 2, SizeBytes = 24_500_000,
+                    Files = [new() { Path = "Faithful 32x.zip", SizeBytes = 18_400_000 }, new() { Path = "Fresh Animations.zip", SizeBytes = 6_100_000 }],
+                },
+                new BackupContentItem
+                {
+                    Path = Token(mods), Kind = "folder", FileCount = 1, SizeBytes = 1_200_000,
+                    Files = [new() { Path = "sodium.jar", SizeBytes = 1_200_000 }],
+                },
+            ],
+        };
     }
 
     private static List<AppListItem> SampleApps() =>

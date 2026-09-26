@@ -6,9 +6,14 @@
 // expires_at) is written only here (and by cleanup-expired), based on what's really in storage.
 //
 // POST { action: "upload-url", size_bytes }  -> { url, expires_in, max_bytes }
-// POST { action: "confirm-upload" }          -> { backup }
+// POST { action: "confirm-upload" }          -> { backup }   (also reads the zip's file list)
+// POST { action: "file-list" }               -> { backup }   (fills in a missing file list)
 // POST { action: "download-url" }            -> { url, file_name, size_bytes, expires_in }
 // POST { action: "delete" }                  -> { backup }
+//
+// `files` (what's inside the zip) is read here from the zip's own manifest.json with a few ranged
+// reads, so the list always matches what was really uploaded. When files go away,
+// `files_removed_at` / `files_removed_reason` record when and why.
 //
 // Deployed with verify_jwt = false: the gateway check doesn't support the project's asymmetric
 // JWT signing keys, so the token is verified here with auth.getClaims() instead (same guarantee).
@@ -16,11 +21,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { adminClient } from '../_shared/admin.ts'
 import { backupKey, EXPIRY_DAYS, formatMB, MAX_BACKUP_BYTES } from '../_shared/constants.ts'
+import { fileListFromZip } from '../_shared/file-list.ts'
 import { fail, json } from '../_shared/http.ts'
-import { head, presignDownload, presignUpload, r2, remove } from '../_shared/r2.ts'
-
-const ROW_COLUMNS = 'apps, file_path, size_bytes, uploaded_at, expires_at, updated_at'
-const CLEARED = { file_path: null, size_bytes: 0, uploaded_at: null, expires_at: null }
+import { head, presignDownload, presignUpload, r2, rangeReader, remove } from '../_shared/r2.ts'
+import { filesRemoved, ROW_COLUMNS } from '../_shared/rows.ts'
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.')
@@ -81,6 +85,7 @@ Deno.serve(async (req) => {
         }
         const uploadedAt = object.lastModified
         const expiresAt = new Date(uploadedAt.getTime() + EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+        const files = await fileListFromZip(rangeReader(storage, key), object.size)
         const { data, error } = await admin
           .from('backups')
           .upsert(
@@ -90,6 +95,9 @@ Deno.serve(async (req) => {
               size_bytes: object.size,
               uploaded_at: uploadedAt.toISOString(),
               expires_at: expiresAt.toISOString(),
+              files,
+              files_removed_at: null,
+              files_removed_reason: null,
             },
             { onConflict: 'user_id' },
           )
@@ -112,7 +120,7 @@ Deno.serve(async (req) => {
         const object = await head(storage, key)
         if (!object) {
           // Storage already dropped it (e.g. the bucket's lifecycle rule): keep the row honest.
-          await admin.from('backups').update(CLEARED).eq('user_id', userId)
+          await admin.from('backups').update(filesRemoved('expired')).eq('user_id', userId)
           return fail(410, 'expired', 'Your backup files have expired. Your app list is still saved.')
         }
         const date = new Date(row.uploaded_at ?? object.lastModified).toISOString().slice(0, 10)
@@ -122,16 +130,51 @@ Deno.serve(async (req) => {
         return json({ url, file_name: fileName, size_bytes: object.size, expires_in: expiresIn })
       }
 
-      case 'delete': {
-        await remove(storage, key)
-        const { data, error } = await admin
+      case 'file-list': {
+        // For backups uploaded before file lists existed (or if reading it failed at upload).
+        const { data: row, error } = await admin
           .from('backups')
-          .update(CLEARED)
-          .eq('user_id', userId)
           .select(ROW_COLUMNS)
+          .eq('user_id', userId)
           .maybeSingle()
         if (error) throw error
-        return json({ backup: data ?? { apps: [], ...CLEARED } })
+        if (!row?.file_path || row.files) return json({ backup: row })
+        const object = await head(storage, key)
+        const update = object
+          ? { files: await fileListFromZip(rangeReader(storage, key), object.size) }
+          : filesRemoved('expired')
+        const { data, error: updateError } = await admin
+          .from('backups')
+          .update(update)
+          .eq('user_id', userId)
+          .eq('uploaded_at', row.uploaded_at) // not replaced by a newer upload meanwhile
+          .is('files', null)
+          .select(ROW_COLUMNS)
+          .maybeSingle()
+        if (updateError) throw updateError
+        return json({ backup: data ?? row })
+      }
+
+      case 'delete': {
+        await remove(storage, key)
+        const { data: row, error } = await admin
+          .from('backups')
+          .select('file_path')
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (error) throw error
+        // Only record a deletion if there was something to delete (keeps the first date).
+        if (row?.file_path) {
+          const { error: updateError } = await admin.from('backups').update(filesRemoved('deleted')).eq('user_id', userId)
+          if (updateError) throw updateError
+        }
+        const { data, error: readError } = await admin
+          .from('backups')
+          .select(ROW_COLUMNS)
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (readError) throw readError
+        return json({ backup: data ?? { apps: [], ...filesRemoved('deleted'), files_removed_at: null, files_removed_reason: null } })
       }
 
       default:

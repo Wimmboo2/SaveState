@@ -1,19 +1,24 @@
 import type { Metadata } from 'next'
 import {
+  CheckCircleIcon,
   ClockCountdownIcon,
   DownloadSimpleIcon,
   HourglassMediumIcon,
+  TrashIcon,
   WarningCircleIcon,
   WindowsLogoIcon,
 } from '@phosphor-icons/react/ssr'
 import { StorageBar } from '@/components/storage-bar'
 import { buttonClass, cardClass } from '@/components/ui'
-import { parseApps } from '@/lib/backup'
+import { type BackupContents, type FilesRemoved, parseApps, parseContents, parseRemoved } from '@/lib/backup'
+import { callBackupFunction } from '@/lib/backup-function'
 import { DESKTOP_DOWNLOAD_URL, EXPIRY_DAYS } from '@/lib/constants'
+import { LocalTime } from '@/components/local-time'
 import { formatBytes, formatDate, formatTimeLeft, isWithinDays } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { AppList } from './app-list'
 import { DeleteBackup } from './delete-backup'
+import { FileList } from './file-list'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -26,14 +31,19 @@ const DOWNLOAD_ERRORS: Record<string, string> = {
 }
 
 const EXPIRES_SOON_DAYS = 5
+const COLUMNS = 'apps, file_path, size_bytes, uploaded_at, expires_at, files, files_removed_at, files_removed_reason'
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error: errorCode } = await searchParams
   const supabase = await createClient()
-  const { data: backup, error } = await supabase
-    .from('backups')
-    .select('apps, file_path, size_bytes, uploaded_at, expires_at')
-    .maybeSingle()
+  const { data: row, error } = await supabase.from('backups').select(COLUMNS).maybeSingle()
+  let backup = row
+
+  // Backups uploaded before file lists existed: have the server read the list out of the zip once.
+  if (backup?.file_path && backup.files === null) {
+    const filled = await callBackupFunction<{ backup: typeof backup }>('file-list')
+    if (filled.ok && filled.data.backup) backup = filled.data.backup
+  }
 
   if (error) {
     return (
@@ -64,6 +74,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const apps = parseApps(backup.apps)
   const hasFiles = Boolean(backup.file_path && backup.expires_at)
+  const contents = hasFiles ? parseContents(backup.files) : null
+  const removed = hasFiles ? null : parseRemoved(backup.files_removed_at, backup.files_removed_reason)
   const errorMessage = errorCode ? (DOWNLOAD_ERRORS[errorCode] ?? 'The download failed. Please try again.') : null
 
   return (
@@ -87,16 +99,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               expiresAt={backup.expires_at!}
             />
           ) : (
-            <NoFilesCard />
+            <NoFilesCard removed={removed} />
           )}
         </aside>
 
-        <section aria-labelledby="apps-heading" className={`${cardClass} p-6 md:p-8 lg:order-1`}>
-          <h2 id="apps-heading" className="mb-3 font-display text-xl font-bold">
-            Saved apps
-          </h2>
-          <AppList apps={apps} />
-        </section>
+        <div className="grid gap-6 lg:order-1">
+          {hasFiles && <ContentsSection contents={contents} />}
+
+          <section aria-labelledby="apps-heading" className={`${cardClass} p-6 md:p-8`}>
+            <h2 id="apps-heading" className="mb-3 font-display text-xl font-bold">
+              Saved apps
+            </h2>
+            <AppList apps={apps} />
+          </section>
+        </div>
       </div>
     </div>
   )
@@ -107,10 +123,16 @@ function FilesCard({ sizeBytes, uploadedAt, expiresAt }: { sizeBytes: number; up
   const left = formatTimeLeft(expiresAt)
   return (
     <section aria-labelledby="files-heading" className={`${cardClass} p-6`}>
-      <h2 id="files-heading" className="font-display text-xl font-bold">
+      <p className="flex items-center gap-2 text-sm font-semibold text-accent">
+        <CheckCircleIcon size={18} weight="fill" aria-hidden />
+        Backed up
+      </p>
+      <h2 id="files-heading" className="mt-1 font-display text-xl font-bold">
         Backup files
       </h2>
-      <p className="mt-1 text-sm text-ink-muted">Uploaded {formatDate(uploadedAt)}</p>
+      <p className="mt-1 text-sm text-ink-muted">
+        Uploaded <LocalTime value={uploadedAt} />
+      </p>
 
       <p
         className={`mt-5 flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-semibold ${
@@ -141,18 +163,51 @@ function FilesCard({ sizeBytes, uploadedAt, expiresAt }: { sizeBytes: number; up
   )
 }
 
-function NoFilesCard() {
+function ContentsSection({ contents }: { contents: BackupContents | 'unavailable' | null }) {
+  return (
+    <section aria-labelledby="contents-heading" className={`${cardClass} p-6 md:p-8`}>
+      <h2 id="contents-heading" className="mb-3 font-display text-xl font-bold">
+        Files in your backup
+      </h2>
+      {contents === 'unavailable' || contents === null ? (
+        <p className="py-4 leading-relaxed text-ink-muted">
+          {contents === null
+            ? "The file list isn't ready yet. Refresh the page in a moment."
+            : "This backup doesn't include a file list. Download it and open README.txt to see what's inside, or back up again from the desktop app."}
+        </p>
+      ) : (
+        <FileList contents={contents} />
+      )}
+    </section>
+  )
+}
+
+function NoFilesCard({ removed }: { removed: FilesRemoved | null }) {
+  const deleted = removed?.reason === 'deleted'
+  const Icon = deleted ? TrashIcon : HourglassMediumIcon
+  const title = !removed ? 'No files stored right now' : deleted ? 'Backup files deleted' : 'Backup files expired'
+  const detail = !removed ? (
+    <>Files are removed {EXPIRY_DAYS} days after upload or when you delete them. Your app list is always kept.</>
+  ) : deleted ? (
+    <>
+      You deleted your backup files on <LocalTime value={removed.at} />. Your app list is still saved.
+    </>
+  ) : (
+    <>
+      Your backup files were removed on <LocalTime value={removed.at} />, {EXPIRY_DAYS} days after upload. Your app
+      list is still saved.
+    </>
+  )
   return (
     <section aria-labelledby="nofiles-heading" className={`${cardClass} p-6`}>
       <span className="grid size-11 place-items-center rounded-full bg-surface-sunk text-ink-muted">
-        <HourglassMediumIcon size={22} aria-hidden />
+        <Icon size={22} aria-hidden />
       </span>
       <h2 id="nofiles-heading" className="mt-4 font-display text-xl font-bold">
-        No files stored right now
+        {title}
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-        Files are removed {EXPIRY_DAYS} days after upload or when you delete them. Your app list is
-        always kept. Back up again from the desktop app to store new files.
+        {detail} Back up again from the desktop app to store new files.
       </p>
       <a href={DESKTOP_DOWNLOAD_URL} className={buttonClass('secondary', 'md', 'mt-5 w-full')}>
         <WindowsLogoIcon size={18} weight="fill" aria-hidden />

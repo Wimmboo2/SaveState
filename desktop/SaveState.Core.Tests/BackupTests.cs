@@ -118,14 +118,6 @@ public sealed class BackupBuilderTests : IDisposable
         Assert.False(File.Exists(zipPath));
     }
 
-    [Fact]
-    public void Minecraft_preset_resolves_only_existing_paths()
-    {
-        var preset = Presets.Presets.All.Single(p => p.Id == "minecraft");
-        var found = Presets.Presets.ResolveExisting(preset, p => p.Replace("%APPDATA%", _appData).Replace('\\', Path.DirectorySeparatorChar));
-        Assert.Equal(3, found.Count); // resourcepacks, options.txt, servers.dat (no mods/config folder here)
-    }
-
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); } catch (IOException) { }

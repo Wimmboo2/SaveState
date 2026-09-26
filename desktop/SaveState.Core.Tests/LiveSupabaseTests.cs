@@ -8,6 +8,7 @@ namespace SaveState.Core.Tests;
 /// Opt-in tests against the real Supabase project. Set SAVESTATE_TEST_EMAIL and
 /// SAVESTATE_TEST_PASSWORD for a throwaway account; they're skipped otherwise.
 /// </summary>
+[Collection("Live account")] // both classes use the same account, so never run them in parallel
 public class LiveSupabaseTests
 {
     private static readonly string? Email = Environment.GetEnvironmentVariable("SAVESTATE_TEST_EMAIL");
