@@ -169,3 +169,7 @@ Windows account only), `selection.json` (picked paths), `log.txt` (no tokens or 
   public repos after 60 days without commits (it emails you; re-enabling is one click).
 - Leaked-password protection (HaveIBeenPwned check) is a Supabase Pro feature and is off.
 - Backups are one zip per account, up to 100 MB; a new backup replaces the old one.
+
+## License
+
+[MIT](LICENSE)
