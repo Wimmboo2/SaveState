@@ -101,6 +101,8 @@ internal sealed class PageStack : Panel
                 return card.Height;
             case FlowLayoutPanel flow:
                 return flow.PreferredSize.Height;
+            case TableLayoutPanel table:
+                return table.GetPreferredSize(new Size(width, 0)).Height;
             default:
                 return c.Height;
         }
