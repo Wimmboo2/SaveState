@@ -16,7 +16,7 @@ internal sealed class AppsPage : UserControl, IPage
     private readonly CheckBox _selectedOnly = new() { Text = "Selected only", AutoSize = true, Font = Theme.Body, ForeColor = Theme.InkMuted, Margin = new Padding(Theme.S4, 10, 0, 0) };
     private readonly Label _count = Ui.Muted("");
     private readonly RoundedButton _save = new() { Text = "Save app list", Enabled = false };
-    private readonly Label _banner = Ui.Banner();
+    private readonly Banner _banner = Ui.Banner();
     private readonly ThemedGrid _grid = new() { Dock = DockStyle.Fill };
     private readonly Label _placeholder = Ui.Muted("Looking for installed apps…");
     private readonly System.Windows.Forms.Timer _searchDebounce = new() { Interval = 160 };

@@ -11,7 +11,7 @@ internal sealed class LoginForm : Form
     private readonly SupabaseApi _api;
     private readonly Label _title = Ui.Heading("");
     private readonly Label _subtitle = Ui.Muted("", maxWidth: 360);
-    private readonly Label _banner = Ui.Banner();
+    private readonly Banner _banner = Ui.Banner();
     private readonly InputBox _email = new() { AccessibleName = "Email" };
     private readonly InputBox _password = new() { Password = true, AccessibleName = "Password" };
     private readonly Label _emailError = Ui.Text("", Theme.BodySmall, Theme.Danger);

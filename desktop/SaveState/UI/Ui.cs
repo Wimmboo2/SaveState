@@ -23,33 +23,13 @@ internal static class Ui
     public static Label FieldLabel(string text) => Text(text, Theme.Label);
 
     /// <summary>A soft-tinted message strip for inline errors / notices. Hidden until <see cref="ShowBanner"/>.</summary>
-    public static Label Banner() => new()
-    {
-        AutoSize = true,
-        Font = Theme.Body,
-        Padding = new Padding(Theme.S3, Theme.S2 + 2, Theme.S3, Theme.S2 + 2),
-        Margin = new Padding(0, 0, 0, Theme.S4),
-        Visible = false,
-        UseMnemonic = false,
-    };
+    public static Controls.Banner Banner() => new();
 
     public enum Tone { Error, Warning, Info, Success }
 
-    public static void ShowBanner(Label banner, string message, Tone tone)
-    {
-        (banner.BackColor, banner.ForeColor) = tone switch
-        {
-            Tone.Error => (Theme.DangerSoft, Theme.Ink),
-            Tone.Warning => (Theme.WarnSoft, Theme.Ink),
-            Tone.Success => (Theme.AccentSoft, Theme.Ink),
-            _ => (Theme.SurfaceSunk, Theme.Ink),
-        };
-        banner.Text = message;
-        banner.MaximumSize = new Size(Math.Max(200, (banner.Parent?.ClientSize.Width ?? 600) - banner.Margin.Horizontal), 0);
-        banner.Visible = true;
-    }
+    public static void ShowBanner(Controls.Banner banner, string message, Tone tone) => banner.Show(message, tone);
 
-    public static void HideBanner(Label banner) => banner.Visible = false;
+    public static void HideBanner(Controls.Banner banner) => banner.Hide();
 
     /// <summary>Friendly text for any exception coming out of an operation.</summary>
     public static string Describe(Exception e) => e switch

@@ -15,7 +15,7 @@ internal sealed class FilesPage : UserControl, IPage
     private readonly IReadOnlyList<PathRoot> _roots = PathTokens.FromEnvironment();
     private readonly ThemedGrid _grid = new() { Dock = DockStyle.Fill, ReadOnly = true, MultiSelect = true };
     private readonly Label _placeholder = Ui.Muted("");
-    private readonly Label _banner = Ui.Banner();
+    private readonly Banner _banner = Ui.Banner();
     private readonly UsageBar _usage = new() { Caption = "Selected files" };
     private readonly Label _usageNote = Ui.Text("Sizes are before compression. The zip is usually a bit smaller.", Theme.BodySmall, Theme.InkMuted);
     private readonly RoundedButton _remove = new() { Text = "Remove", Variant = ButtonVariant.Ghost, Enabled = false, AutoSize = true };

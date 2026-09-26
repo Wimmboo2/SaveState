@@ -15,6 +15,9 @@ internal static class Screenshots
 {
     private static string? _logPath;
 
+    /// <summary>CI fails if any screen or control takes longer than this to paint (UI-freeze guard).</summary>
+    private const long SlowPaintLimitMs = 2000;
+
     /// <summary>Renders all screens. Returns the process exit code (0 = all captured).</summary>
     public static int Run(string outDir)
     {
@@ -132,6 +135,8 @@ internal static class Screenshots
         var sw = System.Diagnostics.Stopwatch.StartNew();
         form.Refresh();
         Note($"  refresh took {sw.ElapsedMilliseconds} ms");
+        if (sw.ElapsedMilliseconds > SlowPaintLimitMs)
+            Fail(new TimeoutException($"Repainting {Path.GetFileNameWithoutExtension(path)} took {sw.ElapsedMilliseconds} ms"));
         Note($"  drawing {path}");
         using var bitmap = new Bitmap(form.Width, form.Height);
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
@@ -152,6 +157,8 @@ internal static class Screenshots
                 child.DrawToBitmap(bmp, new Rectangle(Point.Empty, child.Size));
             if (sw.ElapsedMilliseconds > 200)
                 Note($"  slow first paint {sw.ElapsedMilliseconds} ms: {child.GetType().Name} '{child.Text}' {child.Width}x{child.Height} depth {depth}");
+            if (sw.ElapsedMilliseconds > SlowPaintLimitMs)
+                Fail(new TimeoutException($"{child.GetType().Name} took {sw.ElapsedMilliseconds} ms to paint"));
         }
     }
 

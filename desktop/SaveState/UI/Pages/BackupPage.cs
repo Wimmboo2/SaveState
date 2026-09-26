@@ -14,7 +14,7 @@ namespace SaveState.UI.Pages;
 internal sealed class BackupPage : UserControl, IPage
 {
     private readonly AppState _state;
-    private readonly Label _banner = Ui.Banner();
+    private readonly Banner _banner = Ui.Banner();
 
     // Current backup card
     private readonly Label _statusTitle = Ui.Subheading("");
