@@ -107,12 +107,50 @@ internal sealed class AppsPage : UserControl, IPage
     private void BuildColumns()
     {
         _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Save", Width = 64, AutoSizeMode = DataGridViewAutoSizeColumnMode.None, Resizable = DataGridViewTriState.False });
+        _grid.CellPainting += PaintCheckbox;
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Name", ReadOnly = true, FillWeight = 32 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Publisher", ReadOnly = true, FillWeight = 20 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Version", ReadOnly = true, FillWeight = 12 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Version", ReadOnly = true, FillWeight = 12, MinimumWidth = 110 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Note (optional)", FillWeight = 36, MaxInputLength = 500 });
         _grid.Columns[ColNote].DefaultCellStyle = new DataGridViewCellStyle { ForeColor = Theme.InkMuted, NullValue = "" };
         _grid.Columns[ColName].DefaultCellStyle = new DataGridViewCellStyle { Font = Theme.BodyStrong };
+    }
+
+    /// <summary>Draws the "Save" tick as a soft moss checkbox instead of the system-blue one.</summary>
+    private void PaintCheckbox(object? sender, DataGridViewCellPaintingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex != ColSelect || e.Graphics is null) return;
+        e.PaintBackground(e.CellBounds, true);
+        var g = e.Graphics;
+        Theme.HighQuality(g);
+        var size = _grid.LogicalToDeviceUnits(18);
+        var box = new RectangleF(e.CellBounds.X + (e.CellBounds.Width - size) / 2f, e.CellBounds.Y + (e.CellBounds.Height - size) / 2f, size, size);
+        var ticked = e.Value is true;
+        using (var path = Theme.RoundedRect(box, _grid.LogicalToDeviceUnits(5)))
+        {
+            if (ticked)
+            {
+                using var fill = new SolidBrush(Theme.Accent);
+                g.FillPath(fill, path);
+            }
+            else
+            {
+                using var fill = new SolidBrush(Theme.Surface);
+                using var border = new Pen(Theme.LineStrong, _grid.DeviceDpi / 96f * 1.5f);
+                g.FillPath(fill, path);
+                g.DrawPath(border, path);
+            }
+        }
+        if (ticked)
+        {
+            using var pen = new Pen(Theme.OnAccent, _grid.DeviceDpi / 96f * 2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round };
+            g.DrawLines(pen, [
+                new PointF(box.X + box.Width * 0.26f, box.Y + box.Height * 0.52f),
+                new PointF(box.X + box.Width * 0.44f, box.Y + box.Height * 0.70f),
+                new PointF(box.X + box.Width * 0.76f, box.Y + box.Height * 0.32f),
+            ]);
+        }
+        e.Handled = true;
     }
 
     private async Task LoadAsync()
@@ -166,6 +204,7 @@ internal sealed class AppsPage : UserControl, IPage
             if (!app.IsInstalled) row.Cells[ColVersion].Style.ForeColor = Theme.InkSubtle;
         }
         _grid.ResumeLayout();
+        _grid.ClearSelection(); // don't start with a highlighted row that looks "chosen"
         _grid.CellValueChanged += OnCellValueChanged;
 
         _placeholder.Visible = visible.Count == 0;

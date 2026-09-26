@@ -36,7 +36,7 @@ internal sealed class LoginForm : Form
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(480, 620);
+        ClientSize = new Size(480, 560);
 
         var wordmark = Ui.Text("SaveState", Theme.Wordmark);
         wordmark.Margin = new Padding(0, 0, 0, Theme.S5);

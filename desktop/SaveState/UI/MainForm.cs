@@ -63,10 +63,23 @@ internal sealed class MainForm : Form
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Surface };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
+        var brand = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, BackColor = Theme.Surface, Margin = new Padding(Theme.S3, 0, 0, Theme.S6) };
+        var iconSize = LogicalToDeviceUnits(28);
+        if (AppIcon.Load() is { } icon)
+        {
+            brand.Controls.Add(new PictureBox
+            {
+                Image = new Icon(icon, 256, 256).ToBitmap(),
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Size = new Size(iconSize, iconSize),
+                Margin = new Padding(0, 0, Theme.S2, 0),
+            });
+        }
         var wordmark = Ui.Text("SaveState", Theme.Wordmark);
-        wordmark.Margin = new Padding(Theme.S3, 0, 0, Theme.S6);
+        wordmark.Margin = new Padding(0, (iconSize - TextRenderer.MeasureText("S", Theme.Wordmark).Height) / 2, 0, 0);
+        brand.Controls.Add(wordmark);
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(wordmark);
+        layout.Controls.Add(brand);
 
         foreach (var (label, glyph, page) in pages)
         {
@@ -96,7 +109,7 @@ internal sealed class MainForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(account);
 
-        var signOut = new RoundedButton { Text = "Log out", Variant = ButtonVariant.Ghost, Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 38, Margin = new Padding(0), Padding = new Padding(Theme.S3, 0, Theme.S3, 0) };
+        var signOut = new RoundedButton { Text = "Log out", Variant = ButtonVariant.Nav, Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 38, Margin = new Padding(0), Padding = new Padding(Theme.S3, 0, Theme.S3, 0) };
         signOut.Click += async (_, _) => await SignOutAsync();
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(signOut);

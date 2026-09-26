@@ -67,11 +67,12 @@ internal sealed class BackupPage : UserControl, IPage
         buttons.Controls.Add(_backup);
         buttons.Controls.Add(_cancel);
         _stage.Margin = new Padding(0, Theme.S2, 0, Theme.S2);
+        _stage.Visible = false; // only while working
         _progress.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         AddRows(nextLayout, nextTitle, _summary, buttons, _stage, _progress);
         next.FitTo(nextLayout);
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg, AutoScroll = true };
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Theme.Bg };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         foreach (var c in new Control[] { header, intro, _banner, current, next })
         {
