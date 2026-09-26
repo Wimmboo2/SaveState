@@ -43,12 +43,24 @@ internal sealed class Banner : Control
         FitHeight(); // only changes Height, so this can't loop
     }
 
-    private void FitHeight()
+    /// <summary>Tells table layouts exactly how tall the banner is for a given width.</summary>
+    public override Size GetPreferredSize(Size proposedSize)
     {
-        var textWidth = Math.Max(40, Width - Padding.Horizontal);
+        var width = proposedSize.Width is > 0 and < int.MaxValue ? proposedSize.Width : Width;
+        return new Size(width, HeightFor(width));
+    }
+
+    private int HeightFor(int width)
+    {
+        var textWidth = Math.Max(40, width - Padding.Horizontal);
         var measured = TextRenderer.MeasureText(_message.Length == 0 ? " " : _message, Font,
             new Size(textWidth, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-        var height = measured.Height + Padding.Vertical;
+        return measured.Height + Padding.Vertical;
+    }
+
+    private void FitHeight()
+    {
+        var height = HeightFor(Width);
         if (Height != height) Height = height;
     }
 

@@ -17,12 +17,22 @@ internal class Card : Panel
     /// </summary>
     public void FitTo(Control content)
     {
+        _fitted = true;
         content.Dock = DockStyle.Top;
         Controls.Add(content);
         void Fit() => Height = content.Height + Padding.Vertical;
         content.SizeChanged += (_, _) => Fit();
         Fit();
     }
+
+    /// <summary>
+    /// A card fitted with <see cref="FitTo"/> reports exactly its own height, so auto-size table rows
+    /// don't guess (Panel's default preferred size leaves big gaps).
+    /// </summary>
+    public override Size GetPreferredSize(Size proposedSize) =>
+        _fitted ? new Size(proposedSize.Width is > 0 and < int.MaxValue ? proposedSize.Width : Width, Height) : base.GetPreferredSize(proposedSize);
+
+    private bool _fitted;
 
     public Color FillColor { get; set; } = Theme.Surface;
     public Color BorderColor { get; set; } = Theme.Line;

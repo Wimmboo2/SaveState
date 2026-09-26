@@ -53,7 +53,7 @@ internal sealed class ThemedGrid : DataGridView
     /// <summary>A new, fully configured row for this grid (not added yet).</summary>
     public DataGridViewRow NewRow(object? tag, params object?[] values)
     {
-        var row = new DataGridViewRow();
+        var row = new DataGridViewRow { Height = RowTemplate.Height };
         row.CreateCells(this, values!);
         row.Tag = tag;
         return row;
