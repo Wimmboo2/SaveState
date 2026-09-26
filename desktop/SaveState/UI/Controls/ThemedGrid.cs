@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace SaveState.UI.Controls;
 
 /// <summary>DataGridView styled to match the theme: airy rows, hairline separators, no Win95 chrome.</summary>
@@ -47,4 +49,46 @@ internal sealed class ThemedGrid : DataGridView
             WrapMode = DataGridViewTriState.False,
         };
     }
+
+    /// <summary>A new, fully configured row for this grid (not added yet).</summary>
+    public DataGridViewRow NewRow(object? tag, params object?[] values)
+    {
+        var row = new DataGridViewRow();
+        row.CreateCells(this, values!);
+        row.Tag = tag;
+        return row;
+    }
+
+    /// <summary>
+    /// Swaps in a complete set of rows with painting switched off, so the grid never paints a
+    /// half-built row (DataGridView repaints synchronously during Clear/Add, which can throw).
+    /// </summary>
+    public void ReplaceRows(IEnumerable<DataGridViewRow> rows)
+    {
+        var batch = rows.ToArray();
+        if (!IsHandleCreated)
+        {
+            Rows.Clear();
+            Rows.AddRange(batch);
+            return;
+        }
+
+        SendMessage(Handle, WM_SETREDRAW, 0, 0);
+        try
+        {
+            Rows.Clear();
+            Rows.AddRange(batch);
+            ClearSelection();
+        }
+        finally
+        {
+            SendMessage(Handle, WM_SETREDRAW, 1, 0);
+            Invalidate(true);
+        }
+    }
+
+    private const int WM_SETREDRAW = 0x000B;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, nint wParam, nint lParam);
 }

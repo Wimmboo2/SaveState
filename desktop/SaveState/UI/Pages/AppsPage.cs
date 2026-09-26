@@ -193,18 +193,14 @@ internal sealed class AppsPage : UserControl, IPage
             .ToList();
 
         _grid.CellValueChanged -= OnCellValueChanged;
-        _grid.SuspendLayout();
-        _grid.Rows.Clear();
-        foreach (var app in visible)
+        var rows = visible.Select(app =>
         {
             var version = app.IsInstalled ? app.Version ?? "" : "not installed";
-            var index = _grid.Rows.Add(app.IsSelected, app.Name, app.Publisher ?? "", version, app.Note);
-            var row = _grid.Rows[index];
-            row.Tag = app;
+            var row = _grid.NewRow(app, app.IsSelected, app.Name, app.Publisher ?? "", version, app.Note);
             if (!app.IsInstalled) row.Cells[ColVersion].Style.ForeColor = Theme.InkSubtle;
-        }
-        _grid.ResumeLayout();
-        _grid.ClearSelection(); // don't start with a highlighted row that looks "chosen"
+            return row;
+        });
+        _grid.ReplaceRows(rows); // also clears the selection, so no row looks pre-chosen
         _grid.CellValueChanged += OnCellValueChanged;
 
         _placeholder.Visible = visible.Count == 0;

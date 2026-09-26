@@ -187,8 +187,7 @@ internal sealed class FilesPage : UserControl, IPage
 
     private void RenderRows(List<string> sources, BackupPlan? plan)
     {
-        _grid.SuspendLayout();
-        _grid.Rows.Clear();
+        var rows = new List<DataGridViewRow>();
         foreach (var source in sources)
         {
             var item = plan?.Items.FirstOrDefault(i => string.Equals(i.SourcePath, source, StringComparison.OrdinalIgnoreCase));
@@ -199,14 +198,12 @@ internal sealed class FilesPage : UserControl, IPage
             else if (item is null) (kind, count, size) = ("Included above", "", ""); // already covered by a picked folder
             else (kind, count, size) = (item.IsFolder ? "Folder" : "File", item.Files.Count.ToString("N0"), Sizes.Format(item.SizeBytes));
 
-            var index = _grid.Rows.Add(PathTokens.Tokenize(source, _roots), kind, count, size);
-            var row = _grid.Rows[index];
-            row.Tag = source;
+            var row = _grid.NewRow(source, PathTokens.Tokenize(source, _roots), kind, count, size);
             if (missing || item is null && plan is not null)
                 row.DefaultCellStyle.ForeColor = Theme.InkSubtle;
+            rows.Add(row);
         }
-        _grid.ResumeLayout();
-        _grid.ClearSelection();
+        _grid.ReplaceRows(rows);
 
         _placeholder.Visible = sources.Count == 0;
         _usage.Used = plan?.TotalBytes ?? _usage.Used;
