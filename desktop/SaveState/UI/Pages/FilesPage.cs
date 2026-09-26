@@ -215,7 +215,10 @@ internal sealed class FilesPage : UserControl, IPage
         if (sources.Count == 0) _usage.Used = 0;
         Screenshots.Trace("files: usage set");
 
-        if (plan is { Missing.Count: > 0 })
+        if (plan is not null && Environment.GetEnvironmentVariable("SAVESTATE_EXP_FORCEBANNER") == "1")
+            Ui.ShowBanner(_banner, "Experiment: a banner on the Files page.", Ui.Tone.Warning);
+        else if (plan is { Missing.Count: > 0 } && Environment.GetEnvironmentVariable("SAVESTATE_EXP_NOBANNER") == "1") { }
+        else if (plan is { Missing.Count: > 0 })
             Ui.ShowBanner(_banner, $"{plan.Missing.Count} {(plan.Missing.Count == 1 ? "item doesn't" : "items don't")} exist anymore and will be skipped. Select and remove {(plan.Missing.Count == 1 ? "it" : "them")} to tidy up.", Ui.Tone.Warning);
         else if (plan is not null && plan.TotalBytes > _state.Api.Config.MaxBackupBytes)
             Ui.ShowBanner(_banner, $"That's {Sizes.Format(plan.TotalBytes - _state.Api.Config.MaxBackupBytes)} over the limit. Remove something big, or it may not fit after zipping.", Ui.Tone.Warning);
