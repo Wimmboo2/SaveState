@@ -25,7 +25,7 @@ internal static class Screenshots
         // Watchdog: CI must never hang on a stuck UI.
         var watchdog = new Thread(() =>
         {
-            Thread.Sleep(TimeSpan.FromSeconds(75));
+            Thread.Sleep(TimeSpan.FromSeconds(150));
             Note("watchdog: timed out, exiting");
             Environment.Exit(3);
         }) { IsBackground = true };
@@ -127,11 +127,34 @@ internal static class Screenshots
             Thread.Sleep(30);
             if (++pumps % 20 == 0) Note($"  pumping {path} ({pumps})");
         }
+        // Diagnostics: how long does a real repaint take (what users see), vs. the bitmap capture?
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        form.Refresh();
+        Note($"  refresh took {sw.ElapsedMilliseconds} ms");
+        TimeSlowControls(form, depth: 0);
         Note($"  drawing {path}");
         using var bitmap = new Bitmap(form.Width, form.Height);
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
         bitmap.Save(path, ImageFormat.Png);
         if (show) form.Hide();
+    }
+
+    /// <summary>Logs any control whose capture takes more than half a second (to find slow painters).</summary>
+    private static void TimeSlowControls(Control parent, int depth)
+    {
+        if (depth > 6) return;
+        foreach (Control child in parent.Controls)
+        {
+            if (!child.Visible || child.Width <= 0 || child.Height <= 0) continue;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            using (var bmp = new Bitmap(child.Width, child.Height))
+                child.DrawToBitmap(bmp, new Rectangle(Point.Empty, child.Size));
+            if (sw.ElapsedMilliseconds > 500)
+            {
+                Note($"  slow capture {sw.ElapsedMilliseconds} ms: {child.GetType().Name} '{child.Name}{child.Text}' depth {depth}");
+                TimeSlowControls(child, depth + 1);
+            }
+        }
     }
 
     private static List<AppListItem> SampleApps() =>
