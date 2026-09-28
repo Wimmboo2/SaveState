@@ -32,8 +32,12 @@ jobs:
             echo "Keep-alive paused until $PAUSED_UNTIL (project paused on purpose). Skipping."
             exit 0
           fi
-          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 10 \
+          # A failed ping (e.g. the project is paused) is only a warning on the run page, never a
+          # failed run: GitHub emails on every failure, and a ping can't wake a paused project anyway.
+          if ! curl --fail-with-body --silent --show-error --retry 3 --retry-delay 10 \
             -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
             -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{}'
+            -d '{}'; then
+            echo "::warning::Keep-alive ping failed. If the Supabase project is paused, restore it in the dashboard."
+          fi
