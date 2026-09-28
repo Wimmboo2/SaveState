@@ -22,9 +22,16 @@ jobs:
     env:
       SUPABASE_URL: https://ehitvxhdscevcvlkuegs.supabase.co
       SUPABASE_PUBLISHABLE_KEY: sb_publishable_KcjP42SE8v3nrZuEdKauZw_fxIRPBXh
+      # The project is paused on purpose until this date (UTC); pings before it are skipped
+      # so the run passes instead of failing (and emailing). Remove or clear it to ping again.
+      PAUSED_UNTIL: "2026-10-10"
     steps:
       - name: Run a real database query through the API
         run: |
+          if [ -n "$PAUSED_UNTIL" ] && [ "$(date -u +%F)" \< "$PAUSED_UNTIL" ]; then
+            echo "Keep-alive paused until $PAUSED_UNTIL (project paused on purpose). Skipping."
+            exit 0
+          fi
           curl --fail-with-body --silent --show-error --retry 3 --retry-delay 10 \
             -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
             -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
